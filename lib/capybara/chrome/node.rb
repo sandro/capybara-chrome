@@ -124,8 +124,8 @@ module Capybara::Chrome
         xd = [1, dim["width"]/2, dim["width"]/3]
         yd = [1, dim["height"]/2, dim["height"]/3]
         strategy = rand(0..xd.size-1)
-        cx = dim["x"] + xd[strategy].floor
-        cy = dim["y"] + yd[strategy].floor
+        cx = (dim["x"] + xd[strategy]).floor
+        cy = (dim["y"] + yd[strategy]).floor
         move_mouse(cx, cy, steps: 0)
         expect_node_at_position(cx, cy)
         send_cmd! "Input.dispatchMouseEvent", type: "mousePressed", x: cx, y: cy, clickCount: 1, button: "left"
