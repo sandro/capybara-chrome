@@ -85,6 +85,9 @@ module Capybara::Chrome
     rescue Errno::EPIPE
       retries += 1
       stop_chrome
+      if chrome_running?
+        @chrome_port = find_available_port
+      end
       start_chrome
       start
       retry if retries < 5 && !::RSpec.wants_to_quit

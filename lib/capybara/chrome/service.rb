@@ -37,7 +37,7 @@ module Capybara::Chrome
     end
 
     def chrome_args
-      ["--remote-debugging-port=#{@chrome_port}", "--headless", "--crash-dumps-dir=/tmp"]
+      ["--remote-debugging-port=#{@chrome_port}", "--headless", "--crash-dumps-dir=/tmp", '--js-flags="--max-old-space-size=500"', "--disable-gpu"]
     end
 
     def os
