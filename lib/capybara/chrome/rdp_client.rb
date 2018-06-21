@@ -5,12 +5,14 @@ module Capybara::Chrome
     require "open-uri"
 
     include Debug
+    include Service
 
     attr_reader :response_events, :response_messages, :loader_ids, :listen_mutex, :handler_calls, :ws, :handlers
 
-    def initialize(host:, port:)
-      @host = host
-      @port = port
+    def initialize(chrome_host:, chrome_port:, browser:)
+      @chrome_host = chrome_host
+      @chrome_port = chrome_port
+      @browser = browser
       @last_id = 0
       @ws = nil
       @ws_thread = nil
@@ -36,15 +38,16 @@ module Capybara::Chrome
     def send_cmd!(command, params={})
       debug command, params
       msg_id = generate_unique_id
-      ws.send_msg({method: command, params: params, id: msg_id}.to_json)
+      send_msg({method: command, params: params, id: msg_id}.to_json)
     end
 
+    # Errno::EPIPE
     def send_cmd(command, params={})
       # read_and_process(0.01)
       msg_id = generate_unique_id
 
       # @read_mutex.synchronize do
-      ws.send_msg({method: command, params: params, id: msg_id}.to_json)
+      send_msg({method: command, params: params, id: msg_id}.to_json)
       # end
 
       debug "waiting #{command} #{msg_id}"
@@ -74,6 +77,17 @@ module Capybara::Chrome
 
       # msg = read_until { |msg| msg["id"] == msg_id }
       # msg["result"]
+    end
+
+    def send_msg(msg)
+      retries ||= 0
+      ws.send_msg(msg)
+    rescue Errno::EPIPE
+      retries += 1
+      stop_chrome
+      start_chrome
+      start
+      retry if retries < 5 && !::RSpec.wants_to_quit
     end
 
     def on(event_name, &block)
@@ -259,15 +273,26 @@ module Capybara::Chrome
     end
 
     def discover_ws_url
-      response = open("http://#{@host}:#{@port}/json")
+      response = open("http://#{@chrome_host}:#{@chrome_port}/json")
       data = JSON.parse(response.read)
       first_page = data.detect {|e| e["type"] == "page"}
       @ws_url = first_page["webSocketDebuggerUrl"]
     end
 
     def start
+      wait_for_chrome
       discover_ws_url
       @ws = RDPWebSocketClient.new @ws_url
+      send_cmd "Network.enable"
+      send_cmd "Network.clearBrowserCookies"
+      send_cmd "Page.enable"
+      send_cmd "DOM.enable"
+      send_cmd "CSS.enable"
+      send_cmd "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
+      helper_js = File.expand_path(File.join("..", "..", "chrome_remote_helper.js"), File.dirname(__FILE__))
+      send_cmd "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
+      @browser.after_remote_start
+
       Thread.abort_on_exception = true
       return
       # setup_ws

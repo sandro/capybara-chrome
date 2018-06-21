@@ -10,6 +10,7 @@ module Capybara
     autoload :Driver, "capybara/chrome/driver"
     autoload :Browser, "capybara/chrome/browser"
     autoload :Node, "capybara/chrome/node"
+    autoload :Service, "capybara/chrome/service"
 
     autoload :RDPClient, "capybara/chrome/rdp_client"
     autoload :RDPWebSocketClient, "capybara/chrome/rdp_web_socket_client"

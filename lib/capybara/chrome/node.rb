@@ -220,7 +220,7 @@ module Capybara::Chrome
     def set(value, options={})
       value = value.to_s.gsub('"', '\"')
       # p ["set", value, options, node_description]
-      info value, options
+      # info value, options
       # on_self_value("return this.value")
       # type = on_self_value %( return (this.type || this.tagName).toLowerCase(); )
       type = browser.evaluate_script %( ChromeRemoteHelper.nodeSetType(#{id}) )

@@ -7,7 +7,7 @@ module Capybara
       end
 
       def info(*args)
-        # p [caller_locations(1,1)[0].label, *args, Time.now.to_i]
+        p [caller_locations(1,1)[0].label, *args, Time.now.to_i]
         return args[0]
       end
     end

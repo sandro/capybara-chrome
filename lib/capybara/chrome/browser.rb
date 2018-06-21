@@ -6,9 +6,10 @@ module Capybara::Chrome
     RECOGNIZED_SCHEME = /^https?/
 
     include Debug
+    include Service
 
     attr_reader :remote, :driver, :console_messages, :error_messages
-    def initialize(driver, host: "localhost", port: nil)
+    def initialize(driver, host: "127.0.0.1", port: nil)
       @driver = driver
       @chrome_pid = nil
       @chrome_host = host
@@ -418,7 +419,7 @@ module Capybara::Chrome
                else
                  evaluate_script %( ChromeRemoteHelper.findCss("#{query}") )
                end
-      info query, index, result
+      # info query, index, result
       get_node_results result
     end
 
@@ -455,7 +456,7 @@ module Capybara::Chrome
                else
                  evaluate_script %( ChromeRemoteHelper.findXPath("#{query}") )
                end
-      info [query, index, result]
+      # info [query, index, result]
       get_node_results result
     end
 
@@ -528,18 +529,12 @@ module Capybara::Chrome
     # end
 
     def start_remote
-      wait_for_chrome
       # @remote = ChromeRemoteClient.new(::ChromeRemote.send(:get_ws_url, {host: "localhost", port: @chrome_port}))
-      @remote = RDPClient.new host: @chrome_host, port: @chrome_port
+      @remote = RDPClient.new chrome_host: @chrome_host, chrome_port: @chrome_port, browser: self
       remote.start
-      remote.send_cmd "Network.enable"
-      remote.send_cmd "Network.clearBrowserCookies"
-      remote.send_cmd "Page.enable"
-      remote.send_cmd "DOM.enable"
-      remote.send_cmd "CSS.enable"
-      remote.send_cmd "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
-      helper_js = File.expand_path(File.join("..", "..", "chrome_remote_helper.js"), File.dirname(__FILE__))
-      remote.send_cmd "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
+    end
+
+    def after_remote_start
       # remote.send_cmd "Page.setLifecycleEventsEnabled", enabled: true
       track_network_events
       enable_console_log
@@ -677,71 +672,6 @@ module Capybara::Chrome
       remote.send_cmd "Network.clearBrowserCookies"
       remote.send_cmd "Runtime.discardConsoleEntries"
       visit "about:blank"
-    end
-
-    # --- CHROME ---
-    def start_chrome
-      return if chrome_running?
-      info "Starting Chrome"
-      @chrome_pid = Process.spawn chrome_path, *chrome_args
-      at_exit { stop_chrome }
-    end
-
-    def stop_chrome
-      Process.kill "TERM", @chrome_pid
-    end
-
-    def wait_for_chrome
-      running = false
-      while !running
-        running = chrome_running?
-        sleep 0.02
-      end
-    end
-
-    def chrome_running?
-      socket = TCPSocket.new(@chrome_host, @chrome_port) rescue false
-      socket.close if socket
-      !!socket
-    end
-
-    def chrome_path
-      case os
-      when :macosx
-        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-      when :linux
-        "google-chrome"
-      end
-    end
-
-    def chrome_args
-      ["--remote-debugging-port=#{@chrome_port}", "--headless", "--crash-dumps-dir=/tmp"]
-    end
-
-    def os
-      @os ||= (
-        host_os = RbConfig::CONFIG['host_os']
-        case host_os
-        when /mswin|msys|mingw|cygwin|bccwin|wince|emc/
-          :windows
-        when /darwin|mac os/
-          :macosx
-        when /linux/
-          :linux
-        when /solaris|bsd/
-          :unix
-        else
-          raise Error::WebDriverError, "unknown os: #{host_os.inspect}"
-        end
-      )
-    end
-    # --- END CHROME ---
-
-    def find_available_port(host)
-      server = TCPServer.new(host, 0)
-      server.addr[1]
-    ensure
-      server.close if server
     end
   end
 
