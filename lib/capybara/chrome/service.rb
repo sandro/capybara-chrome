@@ -1,6 +1,18 @@
 module Capybara::Chrome
   module Service
 
+    CHROME_ARGS = [
+      "--headless",
+      "--disable-gpu",
+      "--crash-dumps-dir=/tmp",
+      '--js-flags="--max-old-space-size=500"',
+      "--hide-scrollbars",
+      "--mute-audio",
+      "--disable-dev-shm-usage",
+      "--disable-hang-monitor",
+      "--disable-extensions",
+    ]
+
     def start_chrome
       return if chrome_running?
       info "Starting Chrome", chrome_path, chrome_args
@@ -37,7 +49,7 @@ module Capybara::Chrome
     end
 
     def chrome_args
-      ["--remote-debugging-port=#{@chrome_port}", "--headless", "--crash-dumps-dir=/tmp", '--js-flags="--max-old-space-size=500"', "--disable-gpu"]
+      CHROME_ARGS + ["--remote-debugging-port=#{@chrome_port}"]
     end
 
     def os
