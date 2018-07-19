@@ -83,6 +83,7 @@ module Capybara::Chrome
       retries ||= 0
       ws.send_msg(msg)
     rescue Errno::EPIPE
+      $stderr.puts "Chrome Crashed"
       retries += 1
       stop_chrome
       if chrome_running?

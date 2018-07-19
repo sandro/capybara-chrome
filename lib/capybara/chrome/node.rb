@@ -78,6 +78,7 @@ module Capybara::Chrome
       # height = [b[1], b[3], b[5], b[7]].max - y
       # {x: x, y: y, width: width, height: height}
       # val = on_self_value %( return ChromeRemoteHelper.getDimensions(this) ), awaitPromise: true
+      browser.evaluate_script %( ChromeRemoteHelper.waitWindowLoaded() )
       val = browser.evaluate_script %( ChromeRemoteHelper.nodeGetDimensions(#{id}) )
       val = JSON.parse(val) rescue {}
       val
