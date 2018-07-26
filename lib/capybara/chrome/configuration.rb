@@ -8,14 +8,19 @@ module Capybara::Chrome
     ].freeze
     DEFAULT_MAX_WAIT_TIME = 10
     DEFAULT_DOWNLOAD_PATH = "/tmp"
+    # set Capybara::Chrome::Configuration.chrome_port = 9222 for easy debugging
+    DEFAULT_CHROME_PORT = nil
+    DEFAULT_TRAP_INTERRUPT = true
 
-    attr_accessor :max_wait_time, :download_path
+    attr_accessor :max_wait_time, :download_path, :chrome_port, :trap_interrupt
 
     def initialize
       @allowed_urls = DEFAULT_ALLOWED_URLS.dup
       @blocked_urls = []
       @max_wait_time = DEFAULT_MAX_WAIT_TIME
       @download_path = DEFAULT_DOWNLOAD_PATH
+      @chrome_port = DEFAULT_CHROME_PORT
+      @trap_interrupt = DEFAULT_TRAP_INTERRUPT
     end
 
     def block_unknown_urls
@@ -60,6 +65,10 @@ module Capybara::Chrome
 
     def skip_image_loading?
       @skip_image_loading
+    end
+
+    def trap_interrupt?
+      @trap_interrupt
     end
 
   end

@@ -18,6 +18,7 @@ module Capybara::Chrome
       # p ["DRIVER XPATH"]
       browser.unset_root_node
       browser.root_node
+      browser.get_document
       # find_xpath broken for /html
       # if query == "/html"
       #   # nodes.select {|n| n.local_name == "html"}

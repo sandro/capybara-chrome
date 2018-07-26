@@ -53,6 +53,8 @@ module Capybara::Chrome
       debug script, val
       if details = val["exceptionDetails"]
         if details["exception"]["className"] == "NodeNotFoundError"
+          puts "got exception"
+          p details
           raise Capybara::ExpectationNotMet
         else
           p ["got JS exception", details]
@@ -87,6 +89,7 @@ module Capybara::Chrome
       # @responses.clear
       if @last_navigate
         wait_for_load
+
         # puts "VISIT WAITING"
         # tm = Benchmark.realtime do
         # remote.wait_for("Network.responseReceived", 2) do |req|
@@ -100,7 +103,9 @@ module Capybara::Chrome
       debug "last_navigate", @last_navigate
       # puts "WAITING"
       # remote.wait_for "Page.domContentEventFired"
+
       wait_for_load
+
       # remote.wait_for "Page.loadEventFired"
       # puts "WAITING DONE"
       # debug val, "wait done"

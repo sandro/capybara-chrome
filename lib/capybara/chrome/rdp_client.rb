@@ -82,8 +82,8 @@ module Capybara::Chrome
     def send_msg(msg)
       retries ||= 0
       ws.send_msg(msg)
-    rescue Errno::EPIPE
-      $stderr.puts "Chrome Crashed"
+    rescue Errno::EPIPE, EOFError => exception
+      $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
       retries += 1
       stop_chrome
       if chrome_running?
@@ -91,7 +91,11 @@ module Capybara::Chrome
       end
       start_chrome
       start
-      retry if retries < 5 && !::RSpec.wants_to_quit
+      if retries < 5 && !::Capybara::Chrome.wants_to_quit
+        retry
+      else
+        raise exception
+      end
     end
 
     def on(event_name, &block)
@@ -101,7 +105,7 @@ module Capybara::Chrome
     def wait_for(event_name, timeout=Capybara.default_max_wait_time)
       # puts "wait for #{event_name}"
       # @listen_mutex.synchronize do
-      # @response_events.clear
+      @response_events.clear
       # end
       msg = nil
       Timeout.timeout(timeout) do

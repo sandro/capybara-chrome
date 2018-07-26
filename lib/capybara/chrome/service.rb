@@ -44,7 +44,7 @@ module Capybara::Chrome
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
       when :linux
         # /opt/google/chrome/chrome
-        "google-chrome"
+        "google-chrome-stable"
       end
     end
 
@@ -71,6 +71,7 @@ module Capybara::Chrome
     end
 
     def find_available_port(host)
+      sleep rand * 0.7 # slight delay to account for concurrent browsers
       server = TCPServer.new(host, 0)
       server.addr[1]
     ensure
