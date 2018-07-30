@@ -55,7 +55,7 @@ module Capybara::Chrome
         if details["exception"]["className"] == "NodeNotFoundError"
           puts "got exception"
           p details
-          raise Capybara::ExpectationNotMet
+          raise Capybara::ElementNotFound
         else
           p ["got JS exception", details]
           raise JSException.new(details["exception"].inspect)
@@ -361,7 +361,7 @@ module Capybara::Chrome
         end
       end
       rescue Timeout::Error
-        raise Capybara::ExpectationNotMet
+        raise Capybara::ElementNotFound
       # debug "wait_for", Time.now.to_i
       # val = remote.wait_for "Page.loadEventFired"
       # debug "wait_for done", Time.now.to_i
@@ -409,6 +409,7 @@ module Capybara::Chrome
     def find_css(query)
       # p ["find_css", query]
       debug query
+document_root
       # query.gsub!('"', '\"')
       # get_document
       # result = evaluate_script %( ChromeRemoteHelper.findCss("#{query}") )
@@ -418,6 +419,7 @@ module Capybara::Chrome
     end
 
     def query_selector_all(query, index=nil)
+      document_root
       query.gsub!('"', '\"')
       result = if index
                  evaluate_script %( ChromeRemoteHelper.findCssWithin(#{index}, "#{query}") )
@@ -456,6 +458,7 @@ module Capybara::Chrome
 
     def find_xpath(query, index=nil)
       query.gsub!('"', '\"')
+document_root
       result = if index
                  evaluate_script %( ChromeRemoteHelper.findXPathWithin(#{index}, "#{query}") )
                else

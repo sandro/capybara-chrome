@@ -33,6 +33,7 @@ module Capybara::Chrome
     end
 
     def all_text
+      browser.evaluate_script %( ChromeRemoteHelper.waitDOMContentLoaded(); )
       text = browser.evaluate_script %( ChromeRemoteHelper.onSelfValue(#{id}, "textContent") )
       if Capybara::VERSION.to_f < 3.0
         Capybara::Helpers.normalize_whitespace(text)
@@ -120,7 +121,7 @@ module Capybara::Chrome
         if dim["width"] == 0 && dim["height"] == 0
           puts "DIM IS 0"
           puts html
-          raise Capybara::ExpectationNotMet
+          raise Capybara::ElementNotFound
         end
         # cx = (dim["x"] + dim["width"]/2).floor
         # cy = (dim["y"] + dim["height"]/2 ).floor
@@ -137,13 +138,13 @@ module Capybara::Chrome
         p ["CLICKED", clicked]
         if !clicked
           puts "NO CLICK"
-        raise Capybara::ExpectationNotMet#unless clicked
+        raise Capybara::ElementNotFound#unless clicked
         end
       end
-      vv = browser.remote.wait_for("Page.frameNavigated", 0.01)
-      puts "WAIT FOR Navigating#{vv}"
-      vv = browser.wait_for_load
-      puts "WAIT FOR LOAD #{vv}"
+      # vv = browser.remote.wait_for("Page.frameNavigated", 0.1)
+      # puts "WAIT FOR Navigating#{vv}"
+      # vv = browser.wait_for_load
+      # puts "WAIT FOR LOAD #{vv}"
       # vv = browser.evaluate_script %( ChromeRemoteHelper.waitUnload() )
       # puts "WAIT FOR UNLOAD #{vv}"
     end
@@ -428,6 +429,8 @@ module Capybara::Chrome
 
     def on_self(function_body, options={})
       function_body = function_body.gsub('"', '\"').gsub(/\s+/, " ")
+
+      browser.evaluate_script %( ChromeRemoteHelper.waitDOMContentLoaded(); )
       browser.evaluate_script %(ChromeRemoteHelper.onSelf(#{id}, "#{function_body}"))
       # val = send_cmd("Runtime.callFunctionOn", {functionDeclaration: "function() {#{function_body}}", objectId: remote_object_id, awaitPromise: true}.merge(options))
       # debug val, function_body
