@@ -55,6 +55,7 @@ module Capybara::Chrome
         if details["exception"]["className"] == "NodeNotFoundError"
           puts "got exception"
           p details
+puts caller
           raise Capybara::ElementNotFound
         else
           p ["got JS exception", details]
@@ -74,7 +75,7 @@ module Capybara::Chrome
 
     def wait_for_load
       with_retry do
-        execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
+        execute_script %(window.ChromeRemoteHelper && console.log("haveit"); ChromeRemoteHelper.waitWindowLoaded())
       end
     end
 
@@ -89,7 +90,6 @@ module Capybara::Chrome
       # @responses.clear
       if @last_navigate
         wait_for_load
-
         # puts "VISIT WAITING"
         # tm = Benchmark.realtime do
         # remote.wait_for("Network.responseReceived", 2) do |req|
@@ -103,9 +103,7 @@ module Capybara::Chrome
       debug "last_navigate", @last_navigate
       # puts "WAITING"
       # remote.wait_for "Page.domContentEventFired"
-
       wait_for_load
-
       # remote.wait_for "Page.loadEventFired"
       # puts "WAITING DONE"
       # debug val, "wait done"
@@ -119,7 +117,9 @@ module Capybara::Chrome
           raise e
         else
           puts "RETRYING #{e}"
-          sleep timeout
+          #sleep timeout
+$stderr.puts "read_and_process"
+remote.read_and_process(timeout)
           with_retry(n: n-1, timeout: timeout, &block)
         end
       end
@@ -361,7 +361,7 @@ module Capybara::Chrome
         end
       end
       rescue Timeout::Error
-        raise Capybara::ElementNotFound
+        raise Capybara::ExpectationNotMet
       # debug "wait_for", Time.now.to_i
       # val = remote.wait_for "Page.loadEventFired"
       # debug "wait_for done", Time.now.to_i
@@ -407,7 +407,6 @@ module Capybara::Chrome
     end
 
     def find_css(query)
-      # p ["find_css", query]
       debug query
 document_root
       # query.gsub!('"', '\"')
@@ -419,12 +418,14 @@ document_root
     end
 
     def query_selector_all(query, index=nil)
-      document_root
+document_root
+wait_for_load
+      p ["find_css", query, index]
       query.gsub!('"', '\"')
       result = if index
-                 evaluate_script %( ChromeRemoteHelper.findCssWithin(#{index}, "#{query}") )
+                 evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findCssWithin(#{index}, "#{query}") )
                else
-                 evaluate_script %( ChromeRemoteHelper.findCss("#{query}") )
+                 evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findCss("#{query}") )
                end
       # info query, index, result
       get_node_results result
@@ -451,18 +452,23 @@ document_root
     end
 
     def get_node_results(result)
+vals = result.split(",")
+if vals.empty?
+puts "empty result set"
+end
       result.split(",").map do |id|
         Node.new driver, self, id.to_i
       end
     end
 
     def find_xpath(query, index=nil)
-      query.gsub!('"', '\"')
+p ["find xpath", query, index]
 document_root
+      query.gsub!('"', '\"')
       result = if index
-                 evaluate_script %( ChromeRemoteHelper.findXPathWithin(#{index}, "#{query}") )
+                 evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findXPathWithin(#{index}, "#{query}") )
                else
-                 evaluate_script %( ChromeRemoteHelper.findXPath("#{query}") )
+                 evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findXPath("#{query}") )
                end
       # info [query, index, result]
       get_node_results result
@@ -543,7 +549,7 @@ document_root
     end
 
     def after_remote_start
-      # remote.send_cmd "Page.setLifecycleEventsEnabled", enabled: true
+      remote.send_cmd "Page.setLifecycleEventsEnabled", enabled: true
       track_network_events
       enable_console_log
       enable_lifecycle_events
@@ -611,20 +617,20 @@ document_root
     def enable_console_log
       remote.send_cmd "Console.enable"
       remote.on "Console.messageAdded" do |params|
+         p ["console messageAdded", params]
         str = "#{params["message"]["source"]}:#{params["message"]["line"]} #{params["message"]["text"]}"
         if params["message"]["level"] == "error"
           @error_messages << str
         else
           @console_messages << str
         end
-        # p ["console messageAdded", params]
       end
     end
 
     def enable_lifecycle_events
-      return
+      #return
       remote.on("Page.lifecycleEvent") do |params|
-        p [:lifecycle, params, Thread.current]
+        p [:lifecycle, params]
         if params["name"] == "init"
           # @network_mutex.lock unless @network_mutex.locked?
         elsif params["name"] == "load"

@@ -77,7 +77,7 @@ module Capybara::Chrome
       # height = [b[1], b[3], b[5], b[7]].max - y
       # {x: x, y: y, width: width, height: height}
       # val = on_self_value %( return ChromeRemoteHelper.getDimensions(this) ), awaitPromise: true
-      browser.wait_for_load
+      browser.evaluate_script %( ChromeRemoteHelper.waitWindowLoaded() )
       val = browser.evaluate_script %( ChromeRemoteHelper.nodeGetDimensions(#{id}) )
       val = JSON.parse(val) rescue {}
       val
@@ -113,8 +113,8 @@ module Capybara::Chrome
       #   }.bind(this);
       #   this.addEventListener("click", fn);
       # )
-      browser.with_retry do
-        browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
+      browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
+     # browser.with_retry(n: 1) do
         on_self("this.scrollIntoViewIfNeeded();");
         dim = get_dimensions
         # p dim
@@ -132,25 +132,20 @@ module Capybara::Chrome
         cy = (dim["y"] + yd[strategy]).floor
         move_mouse(cx, cy, steps: 0)
         expect_node_at_position(cx, cy)
-        send_cmd! "Input.dispatchMouseEvent", type: "mousePressed", x: cx, y: cy, clickCount: 1, button: "left"
-        send_cmd! "Input.dispatchMouseEvent", type: "mouseReleased", x: cx, y: cy, clickCount: 1, button: "left"
-        clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
-        p ["CLICKED", clicked]
-        if !clicked
-          puts "NO CLICK"
-        raise Capybara::ElementNotFound#unless clicked
-        end
-      end
-      # vv = browser.remote.wait_for("Page.frameNavigated", 0.1)
-      # puts "WAIT FOR Navigating#{vv}"
-      # vv = browser.wait_for_load
-      # puts "WAIT FOR LOAD #{vv}"
-      # vv = browser.evaluate_script %( ChromeRemoteHelper.waitUnload() )
-      # puts "WAIT FOR UNLOAD #{vv}"
+        on_self %( ChromeRemoteHelper.dispatchEvent(this, "click") )
+        #send_cmd! "Input.dispatchMouseEvent", type: "mousePressed", x: cx, y: cy, clickCount: 1, button: "left"
+        #send_cmd! "Input.dispatchMouseEvent", type: "mouseReleased", x: cx, y: cy, clickCount: 1, button: "left"
+        #clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
+        # p ["CLICKED", clicked]
+        #raise Capybara::ElementNotFound unless clicked
+#      vv = browser.remote.wait_for("Page.frameNavigated", 0.05)
+#puts "Waited for frame navigate #{vv}"
+#      vv = browser.wait_for_load
+#puts "Waited for load #{vv}"
+     # end
     end
 
     def find_css(query)
-      browser.get_document
       # p ["find_css embedded", query]
       # info "node", query, id
       # val = on_self %(
@@ -163,7 +158,6 @@ module Capybara::Chrome
     end
 
     def find_xpath(query)
-      browser.get_document
       # info "node", query, id
       browser.find_xpath query, id
       # p ["find_xpath embedded", query, tag_name]
@@ -429,9 +423,8 @@ module Capybara::Chrome
 
     def on_self(function_body, options={})
       function_body = function_body.gsub('"', '\"').gsub(/\s+/, " ")
-
-      browser.evaluate_script %( ChromeRemoteHelper.waitDOMContentLoaded(); )
-      browser.evaluate_script %(ChromeRemoteHelper.onSelf(#{id}, "#{function_body}"))
+      browser.evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.waitDOMContentLoaded(); )
+      browser.evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.onSelf(#{id}, "#{function_body}"))
       # val = send_cmd("Runtime.callFunctionOn", {functionDeclaration: "function() {#{function_body}}", objectId: remote_object_id, awaitPromise: true}.merge(options))
       # debug val, function_body
       # if val.nil?
@@ -445,6 +438,10 @@ module Capybara::Chrome
 
     def on_self!(function_body, options={})
       function_body = function_body.gsub('"', '\"').gsub(/\s+/, " ")
+
+
+      browser.evaluate_script %( ChromeRemoteHelper.waitDOMContentLoaded(); )
+
       browser.execute_script! %(ChromeRemoteHelper.onSelf(#{id}, "#{function_body}"))
       # send_cmd!("Runtime.callFunctionOn", functionDeclaration: "function() {#{function_body}}", objectId: remote_object_id)
     end

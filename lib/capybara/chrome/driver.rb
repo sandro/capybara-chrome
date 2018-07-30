@@ -16,7 +16,7 @@ module Capybara::Chrome
 
     def find_xpath(query)
       # p ["DRIVER XPATH"]
-      browser.document_root
+browser.document_root
       browser.unset_root_node
       browser.root_node
       # find_xpath broken for /html
@@ -47,4 +47,3 @@ module Capybara::Chrome
 
   end
 end
- 
