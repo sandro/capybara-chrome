@@ -420,7 +420,7 @@ document_root
     def query_selector_all(query, index=nil)
 document_root
 wait_for_load
-      p ["find_css", query, index]
+      # p ["find_css", query, index]
       query.gsub!('"', '\"')
       result = if index
                  evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findCssWithin(#{index}, "#{query}") )
@@ -462,7 +462,7 @@ end
     end
 
     def find_xpath(query, index=nil)
-p ["find xpath", query, index]
+# p ["find xpath", query, index]
 document_root
       query.gsub!('"', '\"')
       result = if index
@@ -617,7 +617,7 @@ document_root
     def enable_console_log
       remote.send_cmd "Console.enable"
       remote.on "Console.messageAdded" do |params|
-         p ["console messageAdded", params]
+        #p ["console messageAdded", params]
         str = "#{params["message"]["source"]}:#{params["message"]["line"]} #{params["message"]["text"]}"
         if params["message"]["level"] == "error"
           @error_messages << str
@@ -628,7 +628,7 @@ document_root
     end
 
     def enable_lifecycle_events
-      #return
+      return
       remote.on("Page.lifecycleEvent") do |params|
         p [:lifecycle, params]
         if params["name"] == "init"

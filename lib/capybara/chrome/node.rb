@@ -114,7 +114,7 @@ module Capybara::Chrome
       #   this.addEventListener("click", fn);
       # )
       browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
-     # browser.with_retry(n: 1) do
+      browser.with_retry do
         on_self("this.scrollIntoViewIfNeeded();");
         dim = get_dimensions
         # p dim
@@ -132,9 +132,9 @@ module Capybara::Chrome
         cy = (dim["y"] + yd[strategy]).floor
         move_mouse(cx, cy, steps: 0)
         expect_node_at_position(cx, cy)
-        on_self %( ChromeRemoteHelper.dispatchEvent(this, "click") )
-        #send_cmd! "Input.dispatchMouseEvent", type: "mousePressed", x: cx, y: cy, clickCount: 1, button: "left"
-        #send_cmd! "Input.dispatchMouseEvent", type: "mouseReleased", x: cx, y: cy, clickCount: 1, button: "left"
+        # on_self %( ChromeRemoteHelper.dispatchEvent(this, "click") )
+        send_cmd! "Input.dispatchMouseEvent", type: "mousePressed", x: cx, y: cy, clickCount: 1, button: "left"
+        send_cmd! "Input.dispatchMouseEvent", type: "mouseReleased", x: cx, y: cy, clickCount: 1, button: "left"
         #clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
         # p ["CLICKED", clicked]
         #raise Capybara::ElementNotFound unless clicked
@@ -142,7 +142,7 @@ module Capybara::Chrome
 #puts "Waited for frame navigate #{vv}"
 #      vv = browser.wait_for_load
 #puts "Waited for load #{vv}"
-     # end
+      end
     end
 
     def find_css(query)
