@@ -149,8 +149,9 @@ module Capybara::Chrome
         end
       end
       # @response_events.clear
-      return msg["params"]
+      return msg && msg["params"]
     rescue Timeout::Error
+      puts "WAIT FOR TIMEOUT"
       nil
     end
 
@@ -177,6 +178,7 @@ module Capybara::Chrome
           msg = JSON.parse(msg_raw)
           # p "message #{msg["id"].inspect} #{msg["method"]} size #{@ws.messages.size}"
           if msg["method"]
+            # p ["EVENT", msg["method"]]
             # p ["EVENT", msg["method"], msg["params"]["type"], msg["params"].fetch("request", {})["url"], msg["params"].fetch("response", {})["url"], "L", msg["params"]["loaderId"], "R", msg["params"]["requestId"], msg["params"]["type"], msg["params"]["name"]]
             # lid = msg["params"]["loaderId"]
             # if lid && !@loader_ids.include?(lid)

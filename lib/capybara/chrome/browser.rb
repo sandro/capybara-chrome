@@ -23,6 +23,8 @@ module Capybara::Chrome
       @error_messages = []
       @js_dialog_handlers = Hash.new {|h,key| h[key] = []}
       @unrecognized_scheme_requests = []
+      @loader_ids = []
+      @loaded_loaders = {}
     end
 
     def start
@@ -75,7 +77,22 @@ puts caller
 
     def wait_for_load
       with_retry do
-        execute_script %(window.ChromeRemoteHelper && console.log("haveit"); ChromeRemoteHelper.waitWindowLoaded())
+        # return execute_script %(window.ChromeRemoteHelper && console.log("haveit"); ChromeRemoteHelper.waitWindowLoaded())
+        loader_id = @loader_ids.last
+        raise "loader empty" if loader_id.nil?
+        if !loader_loaded?(loader_id)
+          # puts "WAITING #{loader_id.inspect}"
+          found = remote.wait_for "Page.lifecycleEvent" do |params|
+            params["name"] == "load" && params["loaderId"] == loader_id
+            # params["name"] == "DOMContentLoaded" && params["loaderId"] == loader_id
+          end
+          if found
+            # puts "FOUND #{found}"
+            @loaded_loaders[loader_id] = true
+          end
+        else
+          # puts "page already loaded"
+        end
       end
     end
 
@@ -452,13 +469,17 @@ wait_for_load
     end
 
     def get_node_results(result)
-vals = result.split(",")
-if vals.empty?
-puts "empty result set"
-end
-      result.split(",").map do |id|
-        Node.new driver, self, id.to_i
+      vals = result.split(",")
+      nodes = []
+      if vals.empty?
+        puts "empty result set #{Time.now.to_i}"
+      else
+        nodes = result.split(",").map do |id|
+          Node.new driver, self, id.to_i
+        end
+        puts "got #{nodes.size} nodes #{Time.now.to_i}"
       end
+      nodes
     end
 
     def find_xpath(query, index=nil)
@@ -628,12 +649,14 @@ document_root
     end
 
     def enable_lifecycle_events
-      return
+      # return
       remote.on("Page.lifecycleEvent") do |params|
-        p [:lifecycle, params]
+        # p [:lifecycle, params]
         if params["name"] == "init"
+          @loader_ids.push(params["loaderId"])
           # @network_mutex.lock unless @network_mutex.locked?
         elsif params["name"] == "load"
+          @loaded_loaders[params["loaderId"]] = true
           # p [:lifecycle_unlock]
           # @network_mutex.unlock if @network_mutex.locked?
         elsif params["name"] == "networkIdle"
@@ -641,6 +664,10 @@ document_root
           # p [:lifecycle_done]
         end
       end
+    end
+
+    def loader_loaded?(loader_id)
+      @loaded_loaders[loader_id]
     end
 
     def save_screenshot(path, options={})
@@ -671,7 +698,6 @@ document_root
       unset_root_node
       @responses.clear
       @last_response = nil
-      # @loader_ids.clear
       @remote.listen_mutex.synchronize do
         @remote.handler_calls.clear
         @remote.response_messages.clear
@@ -682,6 +708,8 @@ document_root
       @error_messages.clear
       @js_dialog_handlers.clear
       @unrecognized_scheme_requests.clear
+      # @loader_ids.clear
+      # @loaded_loaders.clear
       # remote.send_cmd "Page.close"
       remote.send_cmd "Network.clearBrowserCookies"
       remote.send_cmd "Runtime.discardConsoleEntries"
