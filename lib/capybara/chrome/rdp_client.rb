@@ -105,7 +105,7 @@ module Capybara::Chrome
     def wait_for(event_name, timeout=Capybara.default_max_wait_time)
       # puts "wait for #{event_name}"
       # @listen_mutex.synchronize do
-      @response_events.clear
+      # @response_events.clear
       # end
       msg = nil
       Timeout.timeout(timeout) do
@@ -178,7 +178,11 @@ module Capybara::Chrome
           msg = JSON.parse(msg_raw)
           # p "message #{msg["id"].inspect} #{msg["method"]} size #{@ws.messages.size}"
           if msg["method"]
-            # p ["EVENT", msg["method"]]
+            # if msg["method"] =~ /lifecycle/
+            #   p ["EVENT", msg]
+            # else
+            #   p ["EVENT", msg["method"]]
+            # end
             # p ["EVENT", msg["method"], msg["params"]["type"], msg["params"].fetch("request", {})["url"], msg["params"].fetch("response", {})["url"], "L", msg["params"]["loaderId"], "R", msg["params"]["requestId"], msg["params"]["type"], msg["params"]["name"]]
             # lid = msg["params"]["loaderId"]
             # if lid && !@loader_ids.include?(lid)

@@ -46,12 +46,15 @@ module Capybara::Chrome
     # end
 
     def evaluate_script(script, *args)
-      val = execute_script(script)
+      val = execute_script(script, *args)
       val["result"]["value"]
     end
 
     def execute_script(script, *args)
-      val = remote.send_cmd "Runtime.evaluate", expression: script, includeCommandLineAPI: true, awaitPromise: true
+      default_options = {expression: script, includeCommandLineAPI: true, awaitPromise: true}
+      opts = args[0].respond_to?(:merge) ? args[0] : {}
+      opts = default_options.merge(opts)
+      val = remote.send_cmd "Runtime.evaluate", opts
       debug script, val
       if details = val["exceptionDetails"]
         if details["exception"]["className"] == "NodeNotFoundError"
@@ -77,22 +80,30 @@ puts caller
 
     def wait_for_load
       with_retry do
-        # return execute_script %(window.ChromeRemoteHelper && console.log("haveit"); ChromeRemoteHelper.waitWindowLoaded())
-        loader_id = @loader_ids.last
-        raise "loader empty" if loader_id.nil?
-        if !loader_loaded?(loader_id)
-          # puts "WAITING #{loader_id.inspect}"
-          found = remote.wait_for "Page.lifecycleEvent" do |params|
-            params["name"] == "load" && params["loaderId"] == loader_id
-            # params["name"] == "DOMContentLoaded" && params["loaderId"] == loader_id
-          end
-          if found
-            # puts "FOUND #{found}"
-            @loaded_loaders[loader_id] = true
-          end
-        else
-          # puts "page already loaded"
-        end
+        return execute_script %(window.ChromeRemoteHelper && console.log("haveit"); ChromeRemoteHelper.waitWindowLoaded())
+        # Timeout.timeout(1) do
+        #   loop do
+        #     val = evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.windowLoaded), awaitPromise: false
+        #     p ["window loaded", val]
+        #     break if val
+        #     sleep 0.5
+        #   end
+        # end
+        # loader_id = @loader_ids.last
+        # raise "loader empty" if loader_id.nil?
+        # if !loader_loaded?(loader_id)
+        #   # puts "WAITING #{loader_id.inspect}"
+        #   found = remote.wait_for "Page.lifecycleEvent" do |params|
+        #     params["name"] == "load" && params["loaderId"] == loader_id
+        #     # params["name"] == "DOMContentLoaded" && params["loaderId"] == loader_id
+        #   end
+        #   if found
+        #     # puts "FOUND #{found}"
+        #     @loaded_loaders[loader_id] = true
+        #   end
+        # else
+        #   # puts "page already loaded"
+        # end
       end
     end
 
@@ -106,7 +117,7 @@ puts caller
       # evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitDOMContentLoaded())
       # @responses.clear
       if @last_navigate
-        wait_for_load
+        # wait_for_load
         # puts "VISIT WAITING"
         # tm = Benchmark.realtime do
         # remote.wait_for("Network.responseReceived", 2) do |req|
@@ -115,7 +126,7 @@ puts caller
         # end
         # puts "VISIT WAITED #{tm}"
       end
-      # puts "VISITING #{uri}"
+      puts "VISITING #{uri}"
       @last_navigate = remote.send_cmd "Page.navigate", url: uri.to_s, transitionType: "typed"
       debug "last_navigate", @last_navigate
       # puts "WAITING"
@@ -638,7 +649,7 @@ document_root
     def enable_console_log
       remote.send_cmd "Console.enable"
       remote.on "Console.messageAdded" do |params|
-        #p ["console messageAdded", params]
+        p ["console messageAdded", params]
         str = "#{params["message"]["source"]}:#{params["message"]["line"]} #{params["message"]["text"]}"
         if params["message"]["level"] == "error"
           @error_messages << str
@@ -655,6 +666,12 @@ document_root
         if params["name"] == "init"
           @loader_ids.push(params["loaderId"])
           # @network_mutex.lock unless @network_mutex.locked?
+          p ["GOT INIT"]
+          # remote.wait_for("Page.lifecycle") do |p2|
+          #   v = p2["name"] == "load"
+          #   p ["GOT LOAD EVENT"] if v
+          #   v
+          # end
         elsif params["name"] == "load"
           @loaded_loaders[params["loaderId"]] = true
           # p [:lifecycle_unlock]
