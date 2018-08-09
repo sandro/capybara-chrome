@@ -105,7 +105,7 @@ module Capybara::Chrome
     def wait_for(event_name, timeout=Capybara.default_max_wait_time)
       # puts "wait for #{event_name}"
       # @listen_mutex.synchronize do
-      # @response_events.clear
+      @response_events.clear
       # end
       msg = nil
       Timeout.timeout(timeout) do

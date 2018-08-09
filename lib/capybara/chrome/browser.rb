@@ -138,10 +138,11 @@ puts caller
     end
 
     def with_retry(n:10, timeout: 0.05, &block)
+      skip = [Errno::EPIPE, EOFError]
       begin
         block.call
       rescue => e
-        if n == 0
+        if n == 0 || skip.detect {|klass| e.instance_of? klass}
           raise e
         else
           puts "RETRYING #{e}"

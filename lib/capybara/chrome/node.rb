@@ -135,13 +135,13 @@ module Capybara::Chrome
         # on_self %( ChromeRemoteHelper.dispatchEvent(this, "click") )
         send_cmd! "Input.dispatchMouseEvent", type: "mousePressed", x: cx, y: cy, clickCount: 1, button: "left"
         send_cmd! "Input.dispatchMouseEvent", type: "mouseReleased", x: cx, y: cy, clickCount: 1, button: "left"
-        clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
+        #clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
         # p ["CLICKED", clicked]
-        raise Capybara::ElementNotFound unless clicked
-        # vv = browser.remote.wait_for("Page.lifecycleEvent", 0.025) do |params|
-        #   params["name"] == "init"
-        # end
-# puts "Waited for frame navigate #{vv}"
+        #raise Capybara::ElementNotFound unless clicked
+        #vv = browser.remote.wait_for("Page.lifecycleEvent", 0.1) do |params|
+        #  params["name"] == "init"
+        #end
+        #puts "Waited for frame navigate #{vv}"
      vv = browser.wait_for_load
 # puts "Waited for load #{vv}"
       end
