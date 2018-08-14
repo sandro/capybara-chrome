@@ -113,7 +113,14 @@ module Capybara::Chrome
       #   }.bind(this);
       #   this.addEventListener("click", fn);
       # )
-      browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
+      # browser.with_retry do
+      #   on_self %(
+      #     this.scrollIntoViewIfNeeded();
+      #     ChromeRemoteHelper.dispatchEvent(this, 'click')
+      #   )
+      # end
+      # return
+      # browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
       browser.with_retry do
         on_self("this.scrollIntoViewIfNeeded();");
         dim = get_dimensions
@@ -138,10 +145,10 @@ module Capybara::Chrome
         #clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
         # p ["CLICKED", clicked]
         #raise Capybara::ElementNotFound unless clicked
-        #vv = browser.remote.wait_for("Page.lifecycleEvent", 0.1) do |params|
-        #  params["name"] == "init"
-        #end
-        #puts "Waited for frame navigate #{vv}"
+        # vv = browser.remote.wait_for("Page.lifecycleEvent", 0.1) do |params|
+        #   params["name"] == "init"
+        # end
+# puts "Waited for frame navigate #{vv}"
      vv = browser.wait_for_load
 # puts "Waited for load #{vv}"
       end

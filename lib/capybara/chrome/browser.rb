@@ -58,12 +58,8 @@ module Capybara::Chrome
       debug script, val
       if details = val["exceptionDetails"]
         if details["exception"]["className"] == "NodeNotFoundError"
-          puts "got exception"
-          p details
-puts caller
           raise Capybara::ElementNotFound
         else
-          p ["got JS exception", details]
           raise JSException.new(details["exception"].inspect)
         end
       end
@@ -126,7 +122,7 @@ puts caller
         # end
         # puts "VISIT WAITED #{tm}"
       end
-      puts "VISITING #{uri}"
+      # puts "VISITING #{uri}"
       @last_navigate = remote.send_cmd "Page.navigate", url: uri.to_s, transitionType: "typed"
       debug "last_navigate", @last_navigate
       # puts "WAITING"
@@ -138,11 +134,11 @@ puts caller
     end
 
     def with_retry(n:10, timeout: 0.05, &block)
-      skip = [Errno::EPIPE, EOFError]
+      skip_retry = [Errno::EPIPE, EOFError]
       begin
         block.call
       rescue => e
-        if n == 0 || skip.detect {|klass| e.instance_of? klass}
+        if n == 0 || skip_retry.detect {|klass| e.instance_of?(klass)}
           raise e
         else
           puts "RETRYING #{e}"
@@ -448,7 +444,7 @@ document_root
 
     def query_selector_all(query, index=nil)
 document_root
-wait_for_load
+#wait_for_load
       # p ["find_css", query, index]
       query.gsub!('"', '\"')
       result = if index
@@ -484,12 +480,12 @@ wait_for_load
       vals = result.split(",")
       nodes = []
       if vals.empty?
-        puts "empty result set #{Time.now.to_i}"
+        # puts "empty result set #{Time.now.to_f}"
       else
         nodes = result.split(",").map do |id|
           Node.new driver, self, id.to_i
         end
-        puts "got #{nodes.size} nodes #{Time.now.to_i}"
+        # puts "got #{nodes.size} nodes #{Time.now.to_f}"
       end
       nodes
     end
@@ -650,7 +646,6 @@ document_root
     def enable_console_log
       remote.send_cmd "Console.enable"
       remote.on "Console.messageAdded" do |params|
-        p ["console messageAdded", params]
         str = "#{params["message"]["source"]}:#{params["message"]["line"]} #{params["message"]["text"]}"
         if params["message"]["level"] == "error"
           @error_messages << str
@@ -667,7 +662,6 @@ document_root
         if params["name"] == "init"
           @loader_ids.push(params["loaderId"])
           # @network_mutex.lock unless @network_mutex.locked?
-          p ["GOT INIT"]
           # remote.wait_for("Page.lifecycle") do |p2|
           #   v = p2["name"] == "load"
           #   p ["GOT LOAD EVENT"] if v

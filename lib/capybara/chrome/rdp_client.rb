@@ -55,7 +55,7 @@ module Capybara::Chrome
       begin
         Timeout.timeout(Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
-            read_and_process
+            read_and_process(1)
           end
         end
       rescue => e
@@ -105,7 +105,7 @@ module Capybara::Chrome
     def wait_for(event_name, timeout=Capybara.default_max_wait_time)
       # puts "wait for #{event_name}"
       # @listen_mutex.synchronize do
-      @response_events.clear
+       @response_events.clear
       # end
       msg = nil
       Timeout.timeout(timeout) do
@@ -190,7 +190,7 @@ module Capybara::Chrome
             #   p "New loader id #{msg["method"]} #{params["loaderId"]}"
             #   @loader_ids << lid
             # end
-            # events << msg 
+            # events << msg
             hs = handlers[msg["method"]]
             if hs.any?
               # hs.each do |handler|
