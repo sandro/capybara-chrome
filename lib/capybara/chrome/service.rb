@@ -24,6 +24,14 @@ module Capybara::Chrome
       Process.kill "TERM", @chrome_pid rescue nil
     end
 
+    def restart_chrome
+      stop_chrome
+      if chrome_running?
+        @chrome_port = find_available_port(@chrome_host)
+      end
+      start_chrome
+    end
+
     def wait_for_chrome
       running = false
       while !running

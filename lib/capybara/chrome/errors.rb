@@ -6,4 +6,7 @@ module Capybara::Chrome
   class JSException < Error
   end
 
+  class ResponseTimeoutError < Error
+  end
+
 end

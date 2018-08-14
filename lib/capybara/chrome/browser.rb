@@ -9,6 +9,7 @@ module Capybara::Chrome
     include Service
 
     attr_reader :remote, :driver, :console_messages, :error_messages
+    attr_accessor :chrome_port
     def initialize(driver, host: "127.0.0.1", port: nil)
       @driver = driver
       @chrome_pid = nil
@@ -76,7 +77,7 @@ module Capybara::Chrome
 
     def wait_for_load
       with_retry do
-        return execute_script %(window.ChromeRemoteHelper && console.log("haveit"); ChromeRemoteHelper.waitWindowLoaded())
+        return execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
         # Timeout.timeout(1) do
         #   loop do
         #     val = evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.windowLoaded), awaitPromise: false
@@ -122,7 +123,7 @@ module Capybara::Chrome
         # end
         # puts "VISIT WAITED #{tm}"
       end
-      # puts "VISITING #{uri}"
+      puts "VISITING #{uri}"
       @last_navigate = remote.send_cmd "Page.navigate", url: uri.to_s, transitionType: "typed"
       debug "last_navigate", @last_navigate
       # puts "WAITING"
@@ -134,7 +135,7 @@ module Capybara::Chrome
     end
 
     def with_retry(n:10, timeout: 0.05, &block)
-      skip_retry = [Errno::EPIPE, EOFError]
+      skip_retry = [Errno::EPIPE, EOFError, ResponseTimeoutError]
       begin
         block.call
       rescue => e
@@ -142,9 +143,9 @@ module Capybara::Chrome
           raise e
         else
           puts "RETRYING #{e}"
-          #sleep timeout
+          sleep timeout
 $stderr.puts "read_and_process"
-remote.read_and_process(timeout)
+# remote.read_and_process(timeout)
           with_retry(n: n-1, timeout: timeout, &block)
         end
       end
@@ -307,7 +308,7 @@ remote.read_and_process(timeout)
     def last_response_or_err
       Timeout.timeout(Capybara.default_max_wait_time) do
         loop do
-          remote.read_and_process
+          remote.read_and_process(1)
           break @last_response if @last_response
         end
       end
@@ -329,7 +330,7 @@ remote.read_and_process(timeout)
 
 
     def unrecognized_scheme_requests
-      remote.read_and_process
+      remote.read_and_process(1)
       # sleep 0.01
       @unrecognized_scheme_requests
     end
@@ -710,12 +711,12 @@ document_root
       unset_root_node
       @responses.clear
       @last_response = nil
-      @remote.listen_mutex.synchronize do
+      # @remote.listen_mutex.synchronize do
         @remote.handler_calls.clear
         @remote.response_messages.clear
         @remote.response_events.clear
         @remote.loader_ids.clear
-      end
+      # end
       @console_messages.clear
       @error_messages.clear
       @js_dialog_handlers.clear

@@ -55,9 +55,17 @@ module Capybara::Chrome
       begin
         Timeout.timeout(Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
-            read_and_process(1)
+            read_and_process
           end
         end
+      rescue Timeout::Error
+        puts "TimeoutError #{command} #{params.inspect}"
+        send_cmd! "Runtime.terminateExecution"
+        send_cmd! "Browser.close"
+        # recover_chrome_crash
+        raise ResponseTimeoutError
+      rescue Errno::EPIPE, EOFError
+        recover_chrome_crash
       rescue => e
         puts "#{command} #{params.inspect}"
         puts caller
@@ -79,18 +87,19 @@ module Capybara::Chrome
       # msg["result"]
     end
 
+    def recover_chrome_crash
+      $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
+      restart_chrome
+      @browser.chrome_port = @chrome_port
+      start
+    end
+
     def send_msg(msg)
       retries ||= 0
       ws.send_msg(msg)
     rescue Errno::EPIPE, EOFError => exception
-      $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
       retries += 1
-      stop_chrome
-      if chrome_running?
-        @chrome_port = find_available_port
-      end
-      start_chrome
-      start
+      recover_chrome_crash
       if retries < 5 && !::Capybara::Chrome.wants_to_quit
         retry
       else
@@ -123,9 +132,9 @@ module Capybara::Chrome
               end
               if do_return
                 msg = do_return.dup
-                @listen_mutex.synchronize do
+                # @listen_mutex.synchronize do
                   @response_events.delete do_return
-                end
+                # end
                 break
               else
                 # p "got msgs", msgs.size, msgs.map{|s| s["method"]}
@@ -135,9 +144,9 @@ module Capybara::Chrome
               end
             else
               msg = msgs.first.dup
-              @listen_mutex.synchronize do
+              # @listen_mutex.synchronize do
                 msgs.each {|m| @response_events.delete m}
-              end
+              # end
               break
             end
           else
@@ -196,26 +205,26 @@ module Capybara::Chrome
               # hs.each do |handler|
               #   handler.call(msg["params"])
               # end
-              @handler_mutex.synchronize do
+              # @handler_mutex.synchronize do
                 @handler_calls << [msg["method"], msg["params"]]
                 # @handler_calls << [hs, msg["params"]]
-              end
+              # end
             end
             # else
-            @listen_mutex.synchronize do
+            # @listen_mutex.synchronize do
               @response_events << msg
-            end
+            # end
             # end
           else
             # p ["writing to response_messages"]
-            @listen_mutex.synchronize do
+            # @listen_mutex.synchronize do
 
               @response_messages[msg["id"]] = msg
               if msg["exceptionDetails"]
                 puts JSException.new(val["exceptionDetails"]["exception"].inspect)
                 # raise JSException.new(val["exceptionDetails"]["exception"].inspect)
               end
-            end
+            # end
             # p ["writing to response_messages done"]
           end
         else
@@ -289,13 +298,16 @@ module Capybara::Chrome
     def discover_ws_url
       response = open("http://#{@chrome_host}:#{@chrome_port}/json")
       data = JSON.parse(response.read)
+      puts "data is #{response.inspect} #{data.inspect}"
       first_page = data.detect {|e| e["type"] == "page"}
       @ws_url = first_page["webSocketDebuggerUrl"]
     end
 
     def start
       wait_for_chrome
-      discover_ws_url
+      @browser.with_retry do
+        discover_ws_url
+      end
       @ws = RDPWebSocketClient.new @ws_url
       send_cmd "Network.enable"
       send_cmd "Network.clearBrowserCookies"
