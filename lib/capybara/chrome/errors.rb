@@ -9,4 +9,7 @@ module Capybara::Chrome
   class ResponseTimeoutError < Error
   end
 
+  class WebSocketError < Error
+  end
+
 end

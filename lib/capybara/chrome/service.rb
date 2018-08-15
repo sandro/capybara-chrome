@@ -1,17 +1,36 @@
 module Capybara::Chrome
   module Service
 
+      # "--disable-gpu",
+      # '--js-flags="--max-old-space-size=500"',
     CHROME_ARGS = [
       "--headless",
-      "--disable-gpu",
+      "--enable-automation",
       "--crash-dumps-dir=/tmp",
-      '--js-flags="--max-old-space-size=500"',
+      "--disable-background-networking",
+      "--disable-background-timer-throttling",
+      "--disable-breakpad",
+      "--disable-client-side-phishing-detection",
+      "--disable-default-apps",
+      "--disable-dev-shm-usage",
+      "--disable-extensions",
+      "--disable-features=site-per-process",
+      "--disable-hang-monitor",
+      "--disable-popup-blocking",
+      "--disable-prompt-on-repost",
+      "--disable-sync",
+      "--disable-translate",
+      "--metrics-recording-only",
+      "--no-first-run",
+      "--no-pings",
+      "--safebrowsing-disable-auto-update",
       "--hide-scrollbars",
       "--mute-audio",
-      "--disable-dev-shm-usage",
-      "--disable-hang-monitor",
-      "--disable-extensions",
     ]
+
+    def chrome_pid
+      @chrome_pid
+    end
 
     def start_chrome
       return if chrome_running?
@@ -21,7 +40,7 @@ module Capybara::Chrome
     end
 
     def stop_chrome
-      Process.kill "TERM", @chrome_pid rescue nil
+      Process.kill "TERM", chrome_pid rescue nil
     end
 
     def restart_chrome

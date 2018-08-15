@@ -5,9 +5,8 @@ module Capybara::Chrome
     require "open-uri"
 
     include Debug
-    include Service
 
-    attr_reader :response_events, :response_messages, :loader_ids, :listen_mutex, :handler_calls, :ws, :handlers
+    attr_reader :response_events, :response_messages, :loader_ids, :listen_mutex, :handler_calls, :ws, :handlers, :browser
 
     def initialize(chrome_host:, chrome_port:, browser:)
       @chrome_host = chrome_host
@@ -39,35 +38,45 @@ module Capybara::Chrome
       debug command, params
       msg_id = generate_unique_id
       send_msg({method: command, params: params, id: msg_id}.to_json)
+      msg_id
     end
 
     # Errno::EPIPE
     def send_cmd(command, params={})
       # read_and_process(0.01)
-      msg_id = generate_unique_id
-
-      # @read_mutex.synchronize do
-      send_msg({method: command, params: params, id: msg_id}.to_json)
-      # end
+      msg_id = send_cmd!(command, params)
 
       debug "waiting #{command} #{msg_id}"
       msg = nil
       begin
         Timeout.timeout(Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
-            read_and_process
+            @response_messages.delete msg_id
+            read_and_process(1)
           end
         end
       rescue Timeout::Error
-        puts "TimeoutError #{command} #{params.inspect}"
+        puts "TimeoutError #{command} #{params.inspect} #{msg_id}"
         send_cmd! "Runtime.terminateExecution"
-        send_cmd! "Browser.close"
-        # recover_chrome_crash
-        raise ResponseTimeoutError
-      rescue Errno::EPIPE, EOFError
+        # send_cmd! "Browser.close"
+        puts "Recovering"
         recover_chrome_crash
+        sleep 1
+        i = send_cmd!("Browser.getVersion")
+        read_and_process(1)
+
+        p [@response_messages[i], i]
+        raise ResponseTimeoutError
+      rescue WebSocketError => e
+        puts "send_cmd received websocket error #{e.inspect}"
+        recover_chrome_crash
+        raise e
+      rescue Errno::EPIPE, EOFError => e
+        puts "send_cmd received EPIPE or EOF error #{e.inspect}"
+        recover_chrome_crash
+        raise e
       rescue => e
-        puts "#{command} #{params.inspect}"
+        puts "send_cmd caught error #{e.inspect} when issuing #{command} #{params.inspect}"
         puts caller
         raise e
       end
@@ -89,8 +98,8 @@ module Capybara::Chrome
 
     def recover_chrome_crash
       $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
-      restart_chrome
-      @browser.chrome_port = @chrome_port
+      browser.restart_chrome
+      @chrome_port = browser.chrome_port
       start
     end
 
@@ -139,7 +148,7 @@ module Capybara::Chrome
               else
                 # p "got msgs", msgs.size, msgs.map{|s| s["method"]}
                 # sleep 0.05
-                read_and_process
+                read_and_process(1)
                 next
               end
             else
@@ -154,13 +163,13 @@ module Capybara::Chrome
             # sleep 0.01
           end
           # sleep 0.05
-          read_and_process
+          read_and_process(1)
         end
       end
       # @response_events.clear
       return msg && msg["params"]
     rescue Timeout::Error
-      puts "WAIT FOR TIMEOUT"
+      puts "WAIT_FOR TIMED OUT"
       nil
     end
 
@@ -304,20 +313,20 @@ module Capybara::Chrome
     end
 
     def start
-      wait_for_chrome
-      @browser.with_retry do
+      browser.wait_for_chrome
+      browser.with_retry do
         discover_ws_url
       end
       @ws = RDPWebSocketClient.new @ws_url
-      send_cmd "Network.enable"
-      send_cmd "Network.clearBrowserCookies"
-      send_cmd "Page.enable"
-      send_cmd "DOM.enable"
-      send_cmd "CSS.enable"
-      send_cmd "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
+      send_cmd! "Network.enable"
+      send_cmd! "Network.clearBrowserCookies"
+      send_cmd! "Page.enable"
+      send_cmd! "DOM.enable"
+      send_cmd! "CSS.enable"
+      send_cmd! "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
       helper_js = File.expand_path(File.join("..", "..", "chrome_remote_helper.js"), File.dirname(__FILE__))
-      send_cmd "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
-      @browser.after_remote_start
+      send_cmd! "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
+      browser.after_remote_start
 
       Thread.abort_on_exception = true
       return

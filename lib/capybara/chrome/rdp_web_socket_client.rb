@@ -17,10 +17,10 @@ module Capybara::Chrome
       driver.text msg
     end
 
-    def read_msg
-      parse_input until msg = messages.shift
-      msg
-    end
+    # def read_msg
+    #   parse_input until msg = messages.shift
+    #   msg
+    # end
 
     private
 
@@ -30,10 +30,11 @@ module Capybara::Chrome
       end
 
       driver.on(:error) do |e|
-        raise e.message
+        raise WebSocketError.new e.message
       end
 
       driver.on(:close) do |e|
+        raise "closed"
         @status = :closed
       end
 
@@ -44,6 +45,7 @@ module Capybara::Chrome
 
     def start_driver
       driver.start
+      select [socket.io]
       parse_input until status == :open
     end
 

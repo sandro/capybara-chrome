@@ -579,10 +579,9 @@ document_root
     end
 
     def after_remote_start
-      remote.send_cmd "Page.setLifecycleEventsEnabled", enabled: true
       track_network_events
       enable_console_log
-      enable_lifecycle_events
+      # enable_lifecycle_events
       enable_js_dialog
       enable_script_debug
       enable_network_interception
@@ -591,11 +590,11 @@ document_root
 
     def set_viewport(width:, height:, device_scale_factor: 1, mobile: false)
       # remote.send_cmd("Emulation.clearDeviceMetricsOverride")
-      remote.send_cmd("Emulation.setDeviceMetricsOverride", width: width, height: height, deviceScaleFactor: device_scale_factor, mobile: mobile)
+      remote.send_cmd!("Emulation.setDeviceMetricsOverride", width: width, height: height, deviceScaleFactor: device_scale_factor, mobile: mobile)
     end
 
     def enable_network_interception
-      remote.send_cmd "Network.setRequestInterception", patterns: [{urlPattern: "*"}]
+      remote.send_cmd! "Network.setRequestInterception", patterns: [{urlPattern: "*"}]
       remote.on("Network.requestIntercepted") do |params|
         if Capybara::Chrome.configuration.block_url?(params["request"]["url"]) || (Capybara::Chrome.configuration.skip_image_loading? && params["resourceType"] == "Image")
           # p ["blocking", params["request"]["url"]]
@@ -645,7 +644,7 @@ document_root
     end
 
     def enable_console_log
-      remote.send_cmd "Console.enable"
+      remote.send_cmd! "Console.enable"
       remote.on "Console.messageAdded" do |params|
         str = "#{params["message"]["source"]}:#{params["message"]["line"]} #{params["message"]["text"]}"
         if params["message"]["level"] == "error"
@@ -657,7 +656,7 @@ document_root
     end
 
     def enable_lifecycle_events
-      # return
+      remote.send_cmd! "Page.setLifecycleEventsEnabled", enabled: true
       remote.on("Page.lifecycleEvent") do |params|
         # p [:lifecycle, params]
         if params["name"] == "init"
@@ -701,9 +700,9 @@ document_root
 
     def header(key, value)
       if key.downcase == "user-agent"
-        remote.send_cmd("Network.setUserAgentOverride", userAgent: value)
+        remote.send_cmd!("Network.setUserAgentOverride", userAgent: value)
       else
-        remote.send_cmd("Network.setExtraHTTPHeaders", headers: {key => value})
+        remote.send_cmd!("Network.setExtraHTTPHeaders", headers: {key => value})
       end
     end
 
@@ -724,8 +723,8 @@ document_root
       # @loader_ids.clear
       # @loaded_loaders.clear
       # remote.send_cmd "Page.close"
-      remote.send_cmd "Network.clearBrowserCookies"
-      remote.send_cmd "Runtime.discardConsoleEntries"
+      remote.send_cmd! "Network.clearBrowserCookies"
+      remote.send_cmd! "Runtime.discardConsoleEntries"
       visit "about:blank"
     end
   end
