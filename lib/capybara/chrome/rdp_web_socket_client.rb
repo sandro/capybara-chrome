@@ -17,6 +17,10 @@ module Capybara::Chrome
       driver.text msg
     end
 
+    def parse_input
+      @driver.parse(@socket.read)
+    end
+
     # def read_msg
     #   parse_input until msg = messages.shift
     #   msg
@@ -47,10 +51,6 @@ module Capybara::Chrome
       driver.start
       select [socket.io]
       parse_input until status == :open
-    end
-
-    def parse_input
-      @driver.parse(@socket.read)
     end
   end
 end

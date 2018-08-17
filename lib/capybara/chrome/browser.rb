@@ -76,6 +76,7 @@ module Capybara::Chrome
     end
 
     def wait_for_load
+      get_document
       with_retry do
         return execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
         # Timeout.timeout(1) do
@@ -144,7 +145,6 @@ module Capybara::Chrome
         else
           puts "RETRYING #{e}"
           sleep timeout
-$stderr.puts "read_and_process"
 # remote.read_and_process(timeout)
           with_retry(n: n-1, timeout: timeout, &block)
         end
@@ -308,8 +308,8 @@ $stderr.puts "read_and_process"
     def last_response_or_err
       Timeout.timeout(Capybara.default_max_wait_time) do
         loop do
+          break last_response if last_response
           remote.read_and_process(1)
-          break @last_response if @last_response
         end
       end
     rescue Timeout::Error
@@ -317,7 +317,8 @@ $stderr.puts "read_and_process"
     end
 
     def status_code
-      remote.wait_for("Network.responseReceived", Capybara.default_max_wait_time)
+      # remote.wait_for("Network.responseReceived", 2)
+      wait_for_load
       last_response_or_err["status"]
     end
 
@@ -576,6 +577,7 @@ document_root
       # @remote = ChromeRemoteClient.new(::ChromeRemote.send(:get_ws_url, {host: "localhost", port: @chrome_port}))
       @remote = RDPClient.new chrome_host: @chrome_host, chrome_port: @chrome_port, browser: self
       remote.start
+      after_remote_start
     end
 
     def after_remote_start
@@ -711,10 +713,10 @@ document_root
       @responses.clear
       @last_response = nil
       # @remote.listen_mutex.synchronize do
-        @remote.handler_calls.clear
-        @remote.response_messages.clear
-        @remote.response_events.clear
-        @remote.loader_ids.clear
+        remote.handler_calls.clear
+        remote.response_messages.clear
+        remote.response_events.clear
+        remote.loader_ids.clear
       # end
       @console_messages.clear
       @error_messages.clear

@@ -51,9 +51,9 @@ module Capybara::Chrome
       begin
         Timeout.timeout(Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
-            @response_messages.delete msg_id
             read_and_process(1)
           end
+          @response_messages.delete msg_id
         end
       rescue Timeout::Error
         puts "TimeoutError #{command} #{params.inspect} #{msg_id}"
@@ -61,11 +61,12 @@ module Capybara::Chrome
         # send_cmd! "Browser.close"
         puts "Recovering"
         recover_chrome_crash
-        sleep 1
-        i = send_cmd!("Browser.getVersion")
-        read_and_process(1)
+        # send_cmd! "Page.navigate", url: "about:blank"
+        # browser.get_document
+        # i = send_cmd!("Browser.getVersion")
+        # read_and_process(1)
 
-        p [@response_messages[i], i]
+        # p [@response_messages[i], @response_messages.keys, i]
         raise ResponseTimeoutError
       rescue WebSocketError => e
         puts "send_cmd received websocket error #{e.inspect}"
@@ -99,8 +100,9 @@ module Capybara::Chrome
     def recover_chrome_crash
       $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
       browser.restart_chrome
-      @chrome_port = browser.chrome_port
-      start
+      browser.start_remote
+      # @chrome_port = browser.chrome_port
+      # start
     end
 
     def send_msg(msg)
@@ -264,7 +266,7 @@ module Capybara::Chrome
       if ready
         # @read_mutex.synchronize do
         # puts "done select"
-        @ws.send :parse_input
+        @ws.parse_input
         # puts "done parse"
         process_messages
       end
@@ -326,7 +328,6 @@ module Capybara::Chrome
       send_cmd! "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
       helper_js = File.expand_path(File.join("..", "..", "chrome_remote_helper.js"), File.dirname(__FILE__))
       send_cmd! "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
-      browser.after_remote_start
 
       Thread.abort_on_exception = true
       return
