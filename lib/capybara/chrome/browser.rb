@@ -77,8 +77,16 @@ module Capybara::Chrome
 
     def wait_for_load
       get_document
-      with_retry do
-        return execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
+      Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
+        loop do
+          val = evaluate_script %(window.ChromeRemotePageLoaded), awaitPromise: false
+          break val if val
+          sleep 0.001
+        end
+      end
+      # with_retry do
+      #   return execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
+      # end
         # Timeout.timeout(1) do
         #   loop do
         #     val = evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.windowLoaded), awaitPromise: false
@@ -102,7 +110,7 @@ module Capybara::Chrome
         # else
         #   # puts "page already loaded"
         # end
-      end
+      # end
     end
 
     def visit(path, attributes={})
@@ -306,7 +314,7 @@ module Capybara::Chrome
     end
 
     def last_response_or_err
-      Timeout.timeout(Capybara.default_max_wait_time) do
+      Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
         loop do
           break last_response if last_response
           remote.read_and_process(1)
@@ -317,13 +325,11 @@ module Capybara::Chrome
     end
 
     def status_code
-      # remote.wait_for("Network.responseReceived", 2)
-      wait_for_load
       last_response_or_err["status"]
     end
 
     def current_url
-      wait_for_load
+      # wait_for_load
       # remote.wait_for("Network.responseReceived", 0.1)
       # last_response_or_err["url"]
       document_root["documentURL"]

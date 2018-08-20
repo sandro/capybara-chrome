@@ -49,7 +49,7 @@ module Capybara::Chrome
       debug "waiting #{command} #{msg_id}"
       msg = nil
       begin
-        Timeout.timeout(Capybara::Chrome.configuration.max_wait_time) do
+        Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
             read_and_process(1)
           end
