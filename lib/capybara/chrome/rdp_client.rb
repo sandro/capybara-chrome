@@ -30,6 +30,15 @@ module Capybara::Chrome
       @rp, @wp = IO.pipe
     end
 
+    def reset
+      # handlers.clear
+      # handler_calls.clear
+      @calling_handlers = false
+      response_messages.clear
+      response_events.clear
+      loader_ids.clear
+    end
+
     def generate_unique_id
       @last_id += 1
     end

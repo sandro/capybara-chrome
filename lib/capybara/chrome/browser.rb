@@ -76,12 +76,12 @@ module Capybara::Chrome
     end
 
     def wait_for_load
-      get_document
+      # get_document
+      remote.send_cmd "DOM.getDocument"
       Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
         loop do
           val = evaluate_script %(window.ChromeRemotePageLoaded), awaitPromise: false
           break val if val
-          sleep 0.001
         end
       end
       # with_retry do
@@ -314,7 +314,7 @@ module Capybara::Chrome
     end
 
     def last_response_or_err
-      Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
+      Timeout.timeout(1) do
         loop do
           break last_response if last_response
           remote.read_and_process(1)
@@ -386,15 +386,19 @@ module Capybara::Chrome
     end
 
     def get_document
-      debug
-      Timeout.timeout(1) do
-        loop do
-          val = remote.send_cmd "DOM.getDocument"
-          break val if has_body? val
-        end
-      end
-      rescue Timeout::Error
-        raise Capybara::ExpectationNotMet
+      wait_for_load
+val = remote.send_cmd "DOM.getDocument"
+      # debug
+      # Timeout.timeout(1) do
+      #   loop do
+      #     val = remote.send_cmd "DOM.getDocument"
+      #     break val if has_body? val
+      #   end
+      # end
+      # rescue Timeout::Error
+      #   raise Capybara::ExpectationNotMet
+
+
       # debug "wait_for", Time.now.to_i
       # val = remote.wait_for "Page.loadEventFired"
       # debug "wait_for done", Time.now.to_i
@@ -718,16 +722,11 @@ document_root
       unset_root_node
       @responses.clear
       @last_response = nil
-      # @remote.listen_mutex.synchronize do
-        remote.handler_calls.clear
-        remote.response_messages.clear
-        remote.response_events.clear
-        remote.loader_ids.clear
-      # end
       @console_messages.clear
       @error_messages.clear
       @js_dialog_handlers.clear
       @unrecognized_scheme_requests.clear
+      remote.reset
       # @loader_ids.clear
       # @loaded_loaders.clear
       # remote.send_cmd "Page.close"
