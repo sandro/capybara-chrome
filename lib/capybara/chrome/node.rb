@@ -77,7 +77,7 @@ module Capybara::Chrome
       # height = [b[1], b[3], b[5], b[7]].max - y
       # {x: x, y: y, width: width, height: height}
       # val = on_self_value %( return ChromeRemoteHelper.getDimensions(this) ), awaitPromise: true
-      browser.evaluate_script %( ChromeRemoteHelper.waitWindowLoaded() )
+      browser.wait_for_load
       val = browser.evaluate_script %( ChromeRemoteHelper.nodeGetDimensions(#{id}) )
       val = JSON.parse(val) rescue {}
       val
@@ -113,7 +113,14 @@ module Capybara::Chrome
       #   }.bind(this);
       #   this.addEventListener("click", fn);
       # )
-      browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
+      # browser.with_retry do
+      #   on_self %(
+      #     this.scrollIntoViewIfNeeded();
+      #     ChromeRemoteHelper.dispatchEvent(this, 'click')
+      #   )
+      # end
+      # return
+      # browser.evaluate_script %( ChromeRemoteHelper.attachClickListener(#{id}) )
       browser.with_retry do
         on_self("this.scrollIntoViewIfNeeded();");
         dim = get_dimensions
@@ -138,10 +145,12 @@ module Capybara::Chrome
         #clicked = browser.evaluate_script %( ChromeRemoteHelper.nodeVerifyClicked(#{id}) )
         # p ["CLICKED", clicked]
         #raise Capybara::ElementNotFound unless clicked
-#      vv = browser.remote.wait_for("Page.frameNavigated", 0.05)
-#puts "Waited for frame navigate #{vv}"
-#      vv = browser.wait_for_load
-#puts "Waited for load #{vv}"
+        # vv = browser.remote.wait_for("Page.lifecycleEvent", 0.1) do |params|
+        #   params["name"] == "init"
+        # end
+# puts "Waited for frame navigate #{vv}"
+     vv = browser.wait_for_load
+# puts "Waited for load #{vv}"
       end
     end
 

@@ -5,9 +5,8 @@ module Capybara::Chrome
     require "open-uri"
 
     include Debug
-    include Service
 
-    attr_reader :response_events, :response_messages, :loader_ids, :listen_mutex, :handler_calls, :ws, :handlers
+    attr_reader :response_events, :response_messages, :loader_ids, :listen_mutex, :handler_calls, :ws, :handlers, :browser
 
     def initialize(chrome_host:, chrome_port:, browser:)
       @chrome_host = chrome_host
@@ -31,6 +30,15 @@ module Capybara::Chrome
       @rp, @wp = IO.pipe
     end
 
+    def reset
+      # handlers.clear
+      # handler_calls.clear
+      @calling_handlers = false
+      response_messages.clear
+      response_events.clear
+      loader_ids.clear
+    end
+
     def generate_unique_id
       @last_id += 1
     end
@@ -39,27 +47,46 @@ module Capybara::Chrome
       debug command, params
       msg_id = generate_unique_id
       send_msg({method: command, params: params, id: msg_id}.to_json)
+      msg_id
     end
 
     # Errno::EPIPE
     def send_cmd(command, params={})
       # read_and_process(0.01)
-      msg_id = generate_unique_id
-
-      # @read_mutex.synchronize do
-      send_msg({method: command, params: params, id: msg_id}.to_json)
-      # end
+      msg_id = send_cmd!(command, params)
 
       debug "waiting #{command} #{msg_id}"
       msg = nil
       begin
-        Timeout.timeout(Capybara::Chrome.configuration.max_wait_time) do
+        Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
-            read_and_process
+            read_and_process(1)
           end
+          @response_messages.delete msg_id
         end
+      rescue Timeout::Error
+        puts "TimeoutError #{command} #{params.inspect} #{msg_id}"
+        send_cmd! "Runtime.terminateExecution"
+        # send_cmd! "Browser.close"
+        puts "Recovering"
+        recover_chrome_crash
+        # send_cmd! "Page.navigate", url: "about:blank"
+        # browser.get_document
+        # i = send_cmd!("Browser.getVersion")
+        # read_and_process(1)
+
+        # p [@response_messages[i], @response_messages.keys, i]
+        raise ResponseTimeoutError
+      rescue WebSocketError => e
+        puts "send_cmd received websocket error #{e.inspect}"
+        recover_chrome_crash
+        raise e
+      rescue Errno::EPIPE, EOFError => e
+        puts "send_cmd received EPIPE or EOF error #{e.inspect}"
+        recover_chrome_crash
+        raise e
       rescue => e
-        puts "#{command} #{params.inspect}"
+        puts "send_cmd caught error #{e.inspect} when issuing #{command} #{params.inspect}"
         puts caller
         raise e
       end
@@ -79,18 +106,20 @@ module Capybara::Chrome
       # msg["result"]
     end
 
+    def recover_chrome_crash
+      $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
+      browser.restart_chrome
+      browser.start_remote
+      # @chrome_port = browser.chrome_port
+      # start
+    end
+
     def send_msg(msg)
       retries ||= 0
       ws.send_msg(msg)
     rescue Errno::EPIPE, EOFError => exception
-      $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
       retries += 1
-      stop_chrome
-      if chrome_running?
-        @chrome_port = find_available_port
-      end
-      start_chrome
-      start
+      recover_chrome_crash
       if retries < 5 && !::Capybara::Chrome.wants_to_quit
         retry
       else
@@ -105,7 +134,7 @@ module Capybara::Chrome
     def wait_for(event_name, timeout=Capybara.default_max_wait_time)
       # puts "wait for #{event_name}"
       # @listen_mutex.synchronize do
-      @response_events.clear
+       @response_events.clear
       # end
       msg = nil
       Timeout.timeout(timeout) do
@@ -123,21 +152,21 @@ module Capybara::Chrome
               end
               if do_return
                 msg = do_return.dup
-                @listen_mutex.synchronize do
+                # @listen_mutex.synchronize do
                   @response_events.delete do_return
-                end
+                # end
                 break
               else
                 # p "got msgs", msgs.size, msgs.map{|s| s["method"]}
                 # sleep 0.05
-                read_and_process
+                read_and_process(1)
                 next
               end
             else
               msg = msgs.first.dup
-              @listen_mutex.synchronize do
+              # @listen_mutex.synchronize do
                 msgs.each {|m| @response_events.delete m}
-              end
+              # end
               break
             end
           else
@@ -145,12 +174,13 @@ module Capybara::Chrome
             # sleep 0.01
           end
           # sleep 0.05
-          read_and_process
+          read_and_process(1)
         end
       end
       # @response_events.clear
-      return msg["params"]
+      return msg && msg["params"]
     rescue Timeout::Error
+      puts "WAIT_FOR TIMED OUT"
       nil
     end
 
@@ -177,6 +207,11 @@ module Capybara::Chrome
           msg = JSON.parse(msg_raw)
           # p "message #{msg["id"].inspect} #{msg["method"]} size #{@ws.messages.size}"
           if msg["method"]
+            # if msg["method"] =~ /lifecycle/
+            #   p ["EVENT", msg]
+            # else
+            #   p ["EVENT", msg["method"]]
+            # end
             # p ["EVENT", msg["method"], msg["params"]["type"], msg["params"].fetch("request", {})["url"], msg["params"].fetch("response", {})["url"], "L", msg["params"]["loaderId"], "R", msg["params"]["requestId"], msg["params"]["type"], msg["params"]["name"]]
             # lid = msg["params"]["loaderId"]
             # if lid && !@loader_ids.include?(lid)
@@ -184,32 +219,32 @@ module Capybara::Chrome
             #   p "New loader id #{msg["method"]} #{params["loaderId"]}"
             #   @loader_ids << lid
             # end
-            # events << msg 
+            # events << msg
             hs = handlers[msg["method"]]
             if hs.any?
               # hs.each do |handler|
               #   handler.call(msg["params"])
               # end
-              @handler_mutex.synchronize do
+              # @handler_mutex.synchronize do
                 @handler_calls << [msg["method"], msg["params"]]
                 # @handler_calls << [hs, msg["params"]]
-              end
+              # end
             end
             # else
-            @listen_mutex.synchronize do
+            # @listen_mutex.synchronize do
               @response_events << msg
-            end
+            # end
             # end
           else
             # p ["writing to response_messages"]
-            @listen_mutex.synchronize do
+            # @listen_mutex.synchronize do
 
               @response_messages[msg["id"]] = msg
               if msg["exceptionDetails"]
                 puts JSException.new(val["exceptionDetails"]["exception"].inspect)
                 # raise JSException.new(val["exceptionDetails"]["exception"].inspect)
               end
-            end
+            # end
             # p ["writing to response_messages done"]
           end
         else
@@ -240,7 +275,7 @@ module Capybara::Chrome
       if ready
         # @read_mutex.synchronize do
         # puts "done select"
-        @ws.send :parse_input
+        @ws.parse_input
         # puts "done parse"
         process_messages
       end
@@ -283,23 +318,25 @@ module Capybara::Chrome
     def discover_ws_url
       response = open("http://#{@chrome_host}:#{@chrome_port}/json")
       data = JSON.parse(response.read)
+      puts "data is #{response.inspect} #{data.inspect}"
       first_page = data.detect {|e| e["type"] == "page"}
       @ws_url = first_page["webSocketDebuggerUrl"]
     end
 
     def start
-      wait_for_chrome
-      discover_ws_url
+      browser.wait_for_chrome
+      browser.with_retry do
+        discover_ws_url
+      end
       @ws = RDPWebSocketClient.new @ws_url
-      send_cmd "Network.enable"
-      send_cmd "Network.clearBrowserCookies"
-      send_cmd "Page.enable"
-      send_cmd "DOM.enable"
-      send_cmd "CSS.enable"
-      send_cmd "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
+      send_cmd! "Network.enable"
+      send_cmd! "Network.clearBrowserCookies"
+      send_cmd! "Page.enable"
+      send_cmd! "DOM.enable"
+      send_cmd! "CSS.enable"
+      send_cmd! "Page.setDownloadBehavior", behavior: "allow", downloadPath: Capybara::Chrome.configuration.download_path
       helper_js = File.expand_path(File.join("..", "..", "chrome_remote_helper.js"), File.dirname(__FILE__))
-      send_cmd "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
-      @browser.after_remote_start
+      send_cmd! "Page.addScriptToEvaluateOnNewDocument", source: File.read(helper_js)
 
       Thread.abort_on_exception = true
       return
