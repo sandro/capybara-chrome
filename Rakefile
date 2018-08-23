@@ -6,5 +6,5 @@ RSpec::Core::RakeTask.new(:spec)
 task :default => :spec
 
 task :tag do
-  puts `git tag #{Capybara::Chrome::VERSION} && git tag`
+  puts `git tag #{Capybara::Chrome::VERSION} && git tag | sort -V | tail`
 end
