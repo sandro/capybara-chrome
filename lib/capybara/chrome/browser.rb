@@ -132,9 +132,9 @@ module Capybara::Chrome
         # end
         # puts "VISIT WAITED #{tm}"
       end
-      puts "VISITING #{uri}"
+      # puts "VISITING #{uri}"
       @last_navigate = remote.send_cmd "Page.navigate", url: uri.to_s, transitionType: "typed"
-      debug "last_navigate", @last_navigate
+      # debug "last_navigate", @last_navigate
       # puts "WAITING"
       # remote.wait_for "Page.domContentEventFired"
       wait_for_load
@@ -386,8 +386,7 @@ module Capybara::Chrome
     end
 
     def get_document
-      wait_for_load
-val = remote.send_cmd "DOM.getDocument"
+      val = remote.send_cmd "DOM.getDocument"
       # debug
       # Timeout.timeout(1) do
       #   loop do
@@ -445,7 +444,6 @@ val = remote.send_cmd "DOM.getDocument"
 
     def find_css(query)
       debug query
-document_root
       # query.gsub!('"', '\"')
       # get_document
       # result = evaluate_script %( ChromeRemoteHelper.findCss("#{query}") )
@@ -455,7 +453,7 @@ document_root
     end
 
     def query_selector_all(query, index=nil)
-document_root
+      wait_for_load
 #wait_for_load
       # p ["find_css", query, index]
       query.gsub!('"', '\"')
@@ -504,7 +502,7 @@ document_root
 
     def find_xpath(query, index=nil)
 # p ["find xpath", query, index]
-document_root
+      wait_for_load
       query.gsub!('"', '\"')
       result = if index
                  evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findXPathWithin(#{index}, "#{query}") )
