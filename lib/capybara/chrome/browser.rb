@@ -314,10 +314,10 @@ module Capybara::Chrome
     end
 
     def last_response_or_err
-      Timeout.timeout(1) do
+      Timeout.timeout(2) do
         loop do
           break last_response if last_response
-          remote.read_and_process(1)
+          remote.read_and_process(0.01)
         end
       end
     rescue Timeout::Error
