@@ -514,19 +514,22 @@ module Capybara::Chrome
     end
 
     def title
-      Timeout.timeout(1) do
-        loop do
-          get_document
-          nodes = find_xpath("/html/head/title") rescue nil
-          if nodes && nodes.any?
-            break nodes[0].text
-          else
-            ""
-          end
-        end
+      nodes = find_xpath("/html/head/title")
+      if nodes && nodes.first
+        nodes[0].text
+      else
+        ""
       end
-    rescue Timeout::Error
-      ""
+      # Timeout.timeout(1) do
+      #   loop do
+      #     nodes = find_xpath("/html/head/title") rescue nil
+      #     if nodes && nodes.any?
+      #       break nodes[0].text
+      #     end
+      #   end
+      # end
+    # rescue Timeout::Error
+      # ""
     end
 
     # def find_xpath(query)
