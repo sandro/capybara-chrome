@@ -78,12 +78,12 @@ module Capybara::Chrome
     def wait_for_load
       # get_document
       remote.send_cmd "DOM.getDocument"
-      Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
+      # Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
         loop do
           val = evaluate_script %(window.ChromeRemotePageLoaded), awaitPromise: false
           break val if val
         end
-      end
+      # end
       # with_retry do
       #   return execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
       # end
@@ -314,12 +314,12 @@ module Capybara::Chrome
     end
 
     def last_response_or_err
-      Timeout.timeout(2) do
+      # Timeout.timeout(2) do
         loop do
           break last_response if last_response
           remote.read_and_process(0.01)
         end
-      end
+      # end
     rescue Timeout::Error
       raise Capybara::ExpectationNotMet
     end

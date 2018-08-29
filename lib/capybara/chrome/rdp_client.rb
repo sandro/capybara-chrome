@@ -58,12 +58,12 @@ module Capybara::Chrome
       debug "waiting #{command} #{msg_id}"
       msg = nil
       begin
-        Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
+        # Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
           until msg = @response_messages[msg_id]
             read_and_process(1)
           end
           @response_messages.delete msg_id
-        end
+        # end
       rescue Timeout::Error
         puts "TimeoutError #{command} #{params.inspect} #{msg_id}"
         send_cmd! "Runtime.terminateExecution"
@@ -137,7 +137,7 @@ module Capybara::Chrome
        @response_events.clear
       # end
       msg = nil
-      Timeout.timeout(timeout) do
+      # Timeout.timeout(timeout) do
         loop do
           msgs = @response_events.select {|v| v["method"] == event_name}
           if msgs.any?
@@ -176,7 +176,7 @@ module Capybara::Chrome
           # sleep 0.05
           read_and_process(1)
         end
-      end
+      # end
       # @response_events.clear
       return msg && msg["params"]
     rescue Timeout::Error
