@@ -733,6 +733,8 @@ module Capybara::Chrome
       # remote.send_cmd "Page.close"
       remote.send_cmd! "Network.clearBrowserCookies"
       remote.send_cmd! "Runtime.discardConsoleEntries"
+      remote.send_cmd! "Network.setExtraHTTPHeaders", headers: {}
+      remote.send_cmd! "Network.setUserAgentOverride", userAgent: ""
       visit "about:blank"
     end
   end
