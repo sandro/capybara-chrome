@@ -22,17 +22,53 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+The standard port for the debugging protocol is `9222`. Visit `localhost:9222` in a Chrome tab to watch the tests execute. Note, the port will be random when using Specjour.
 
-## Development
+### Debugging
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+Use `byebug` instead of `binding.pry` when debugging a test. The Pry debugger tends to hang when `visit` is called.
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+### Using the repl
+
+You can use the capybara-chrome browser without providing a rack app. This can be helpful in debugging.
+
+```
+[2] pry(main)> driver = Capybara::Chrome::Driver.new(nil, port:9222); driver.start; browser = driver.browser
+[3] pry(main)> browser.visit "http://google.com"
+=> true
+[4] pry(main)> browser.current_url
+=> "https://www.google.com/?gws_rd=ssl"
+[5] pry(main)>
+
+```
+
+Further, you can run a local netcat server and point the capybara-chrome browser to it to see the entire request that's being sent.
+
+Terminal one contains the browser:
+
+```
+[1] pry(main)> driver = Capybara::Chrome::Driver.new(nil, port:9222); driver.start; browser = driver.browser
+[2] pry(main)> browser.header "x-foo", "bar"
+[3] pry(main)> browser.visit "http://localhost:8000"
+```
+
+Terminal two prints the request
+
+```
+$ while true; do { echo -e "HTTP/1.1 200 OK \r\n"; echo "hi"; } | nc -l 8000; done
+GET / HTTP/1.1
+Host: localhost:8000
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_6) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/68.0.3440.106 Safari/537.36
+x-foo: bar
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8
+Accept-Encoding: gzip, deflate
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/sandro/capybara-chrome.
+Bug reports and pull requests are welcome on GitHub at https://github.com/carezone/capybara-chrome.
 
 ## License
 
