@@ -456,6 +456,7 @@ module Capybara::Chrome
       wait_for_load
 #wait_for_load
       # p ["find_css", query, index]
+      query = query.dup
       query.gsub!('"', '\"')
       result = if index
                  evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findCssWithin(#{index}, "#{query}") )
@@ -503,6 +504,7 @@ module Capybara::Chrome
     def find_xpath(query, index=nil)
 # p ["find xpath", query, index]
       wait_for_load
+      query = query.dup
       query.gsub!('"', '\"')
       result = if index
                  evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findXPathWithin(#{index}, "#{query}") )
