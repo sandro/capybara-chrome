@@ -33,19 +33,6 @@ module Capybara::Chrome
       start_remote
     end
 
-    # def describe_node(id)
-    #   val = remote.send_cmd("DOM.describeNode", nodeId: id)
-    #   p ["describe_node", val,val.class]
-    #   val = evaluate_script("document.querySelector('#upcoming-shipments')")
-    #   p val
-    #   oId = val["result"]["objectId"]
-    #   val = remote.send_cmd("Runtime.callFunctionOn", functionDeclaration: "function() {return this.innerText}", objectId: oId)
-    #   p ["functionOn", val]
-    #   val = remote.send_cmd("DOM.requestNode", objectId: oId)
-    #   p ["request node", val]
-    #   val
-    # end
-
     def evaluate_script(script, *args)
       val = execute_script(script, *args)
       val["result"]["value"]
@@ -76,41 +63,11 @@ module Capybara::Chrome
     end
 
     def wait_for_load
-      # get_document
       remote.send_cmd "DOM.getDocument"
-      # Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
-        loop do
-          val = evaluate_script %(window.ChromeRemotePageLoaded), awaitPromise: false
-          break val if val
-        end
-      # end
-      # with_retry do
-      #   return execute_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitWindowLoaded())
-      # end
-        # Timeout.timeout(1) do
-        #   loop do
-        #     val = evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.windowLoaded), awaitPromise: false
-        #     p ["window loaded", val]
-        #     break if val
-        #     sleep 0.5
-        #   end
-        # end
-        # loader_id = @loader_ids.last
-        # raise "loader empty" if loader_id.nil?
-        # if !loader_loaded?(loader_id)
-        #   # puts "WAITING #{loader_id.inspect}"
-        #   found = remote.wait_for "Page.lifecycleEvent" do |params|
-        #     params["name"] == "load" && params["loaderId"] == loader_id
-        #     # params["name"] == "DOMContentLoaded" && params["loaderId"] == loader_id
-        #   end
-        #   if found
-        #     # puts "FOUND #{found}"
-        #     @loaded_loaders[loader_id] = true
-        #   end
-        # else
-        #   # puts "page already loaded"
-        # end
-      # end
+      loop do
+        val = evaluate_script %(window.ChromeRemotePageLoaded), awaitPromise: false
+        break val if val
+      end
     end
 
     def visit(path, attributes={})
@@ -120,27 +77,8 @@ module Capybara::Chrome
         uri.port = Capybara.current_session.server.port unless uri.port.present?
       end
       debug ["visit #{uri}"]
-      # evaluate_script %(window.ChromeRemoteHelper && ChromeRemoteHelper.waitDOMContentLoaded())
-      # @responses.clear
-      if @last_navigate
-        # wait_for_load
-        # puts "VISIT WAITING"
-        # tm = Benchmark.realtime do
-        # remote.wait_for("Network.responseReceived", 2) do |req|
-        #   req["type"] == "Document"
-        # end
-        # end
-        # puts "VISIT WAITED #{tm}"
-      end
-      # puts "VISITING #{uri}"
       @last_navigate = remote.send_cmd "Page.navigate", url: uri.to_s, transitionType: "typed"
-      # debug "last_navigate", @last_navigate
-      # puts "WAITING"
-      # remote.wait_for "Page.domContentEventFired"
       wait_for_load
-      # remote.wait_for "Page.loadEventFired"
-      # puts "WAITING DONE"
-      # debug val, "wait done"
     end
 
     def with_retry(n:10, timeout: 0.05, &block)
@@ -153,7 +91,6 @@ module Capybara::Chrome
         else
           puts "RETRYING #{e}"
           sleep timeout
-# remote.read_and_process(timeout)
           with_retry(n: n-1, timeout: timeout, &block)
         end
       end
@@ -161,22 +98,8 @@ module Capybara::Chrome
 
     def track_network_events
       return if @track_network_events
-      # remote.on("Network.requestWillBeSent") do |req|
-      #   debug req if req["type"] == "XHR"
-      #   if req["type"] == "Document"
-      #     debug "WILL WAIT", req
-      #     remote.wait_for("Network.responseReceived") do |resp|
-      #       if resp["type"] == req["type"] && resp["requestId"] == req["requestId"]
-      #         debug "GOTIT", resp["requestId"], resp["loaderId"], resp["type"]
-      #         @responses[resp["requestId"]] = resp["response"]
-      #         true
-      #       end
-      #     end
-      #   end
-      # end
       remote.on("Network.requestWillBeSent") do |req|
         if req["type"] == "Document"
-          # p ["DOC Request", req["request"]["url"], req]
           if !RECOGNIZED_SCHEME.match req["request"]["url"]
             puts "ADDING SCHEME"
             @unrecognized_scheme_requests << req["request"]["url"]
@@ -188,7 +111,6 @@ module Capybara::Chrome
       remote.on("Network.responseReceived") do |params|
         debug params["response"]["url"], params["requestId"], params["loaderId"], params["type"]
         if params["type"] == "Document"
-          # p ["DOC Response", params["response"]["url"]]
           @responses[params["requestId"]] = params["response"]
           @last_response = params["response"]
         end
@@ -196,130 +118,18 @@ module Capybara::Chrome
       remote.on("Network.loadingFailed") do |params|
         debug ["loadingFailed", params]
       end
-      # remote.on("Page.frameScheduledNavigation") do |params|
-      #   debug "waiting"
-      #   val = remote.wait_for("Page.frameNavigated")
-      #   debug "wait done", val
-      # end
       @track_network_events = true
-
-      # @loader_ids = {}
-      # @pages = []
-      # @waiting = false
-
-      # remote.on("DOM.documentUpdated") do
-      #   puts "DOCUMENT UPDATED"
-      # end
-
-      # remote.on("Page.frameStartedLoading") do |params|
-      #   puts "frame started loading"
-      #   remote.wait_for("Page.frameStoppedLoading") do
-      #     puts "frame done loading"
-      #     true
-      #   end
-      # end
-
-      # form submit
-      # remote.on("Page.frameScheduledNavigation") do |params|
-      #   p ["schedule", @waiting]
-      #   next if @waiting
-      #   @waiting = true
-      #   # remote.wait_for("Page.frameNavigated") do |params2|
-      #   p ["ABOUT TO wait FOR FRAME", params["frameId"]]
-      #   # remote.wait_for("Page.frameStoppedLoading") do |params2|
-      #   #   p ["navigated", params, params2]
-      #   #   # params["frameId"] == params2["frame"]["id"]
-      #   #   params["frameId"] == params2["frameId"]
-      #   # end
-      #   remote.wait_for("Page.lifecycleEvent") do |lcycle_params|
-      #     # p ["wait for block called", lcycle_params["name"]]
-      #     if lcycle_params["name"] == "DOMContentLoaded" && params["frameId"] == lcycle_params["frameId"]
-      #       @loader_ids[lcycle_params["loaderId"]] = true
-      #       @remote.response_events.delete_if {|k,v| k == lcycle_params["loaderId"]}
-      #       true
-      #     end
-      #   end
-      #   @waiting = false
-      #   p ["wait done"]
-      #   unset_root_node
-      #   # root_node
-      # end
-
-      # remote.on("Network.requestWillBeSent") do |params|
-      #   lid = params["loaderId"]
-      #   if @loader_ids.has_key?(lid) || @waiting
-      #     p ["skipping request", lid]
-      #     next
-      #   end
-      #   # @waiting = true
-      #   @loader_ids[lid] = false
-      #   # @network_mutex.lock unless @network_mutex.locked?
-      #   p ["ABOUT TO wait FOR REQUEST"]
-      #   # next if @waiting
-      #   # @waiting = true
-      #   remote.wait_for("Page.lifecycleEvent") do |lcycle_params|
-      #     # p ["wait for block called", lcycle_params["name"]]
-      #     if (lcycle_params["name"] == "DOMContentLoaded"  || lcycle_params["name"] == "networkIdle")
-      #       loaded = @loader_ids[lcycle_params["loaderId"]]
-      #       if !loaded
-      #         @loader_ids[lcycle_params["loaderId"]] = true
-      #       end
-      #     end
-      #     val = @loader_ids.all? {|k,v| v == true}
-      #     if val
-      #       @remote.response_events.delete_if {|k,v| k == lcycle_params["loaderId"]}
-      #     else
-      #       puts "waiting again #{@loader_ids}"
-      #     end
-      #     val
-      #   end
-      #   # @waiting = false
-      #   p ["wait done"]
-      #   unset_root_node
-      #   # root_node
-      # end
-      # remote.on("Network.loadingFinished") do |params|
-      #   @network_mutex.unlock if @network_mutex.locked?
-      # end
-      # remote.on("Page.frameScheduledNavigation") do |params|
-      #   debug "frame schedule", params
-      #   p ["frame scheduled"]
-      #   @network_mutex.lock
-      #   p ["frame scheduled locked"]
-      # end
-      #   Thread.new do
-      #     @frame_mutex.synchronize do
-      #       debug "frame schedule in thread", params, Thread.current
-      #       # val = remote.wait_for("Page.frameNavigated")
-      #       p ["remote wait for"]
-      #       val = remote.wait_for("Page.domContentEventFired")
-      #       p ["domContentLoaded"]
-      #       debug "domContentFired", val
-      #     end
-      #     get_document
-      #   end
-      # end
-      # remote.on("Page.frameNavigated") do |params|
-      #   debug "frame navigated", params
-      # end
-      # remote.on("Page.loadEventFired") do |params|
-      #   debug "loadEventFired"
-      #   debug html
-      # end
     end
 
     def last_response
       @last_response
-      # @responses[@last_navigate["loaderId"]] || {}
     end
 
     def last_response_or_err
-      # Timeout.timeout(2) do
-        loop do
-          break last_response if last_response
-          remote.read_and_process(0.01)
-        end
-      # end
+      loop do
+        break last_response if last_response
+        remote.read_and_process(0.01)
+      end
     rescue Timeout::Error
       raise Capybara::ExpectationNotMet
     end
@@ -329,49 +139,13 @@ module Capybara::Chrome
     end
 
     def current_url
-      # wait_for_load
-      # remote.wait_for("Network.responseReceived", 0.1)
-      # last_response_or_err["url"]
       document_root["documentURL"]
     end
 
-
     def unrecognized_scheme_requests
       remote.read_and_process(1)
-      # sleep 0.01
       @unrecognized_scheme_requests
     end
-
-    # def response_body
-    #   val = remote.send_cmd "Network.getResponseBody", requestId: @last_navigate["loaderId"]
-    #   debug val
-    #   val["body"]
-    # end
-
-    # def wait_for_body
-    #   debug
-    #   Timeout.timeout(1) do
-    #     loop do
-    #       vv = nil
-    #       tt = Benchmark.realtime do
-    #         vv = remote.send_cmd("DOM.performSearch", query: "/html/body")
-    #       end
-    #       # p ["wait for body", vv, tt]
-    #       remote.send_cmd!("DOM.discardSearchResults", searchId: vv["searchId"]) if vv
-    #       if vv && vv["resultCount"] > 0
-    #         break true
-    #       end
-    #       # vv = remote.send_cmd "DOM.querySelector", nodeId: id, selector: "body"
-    #       # p ["query selector", vv]
-    #       # if vv.nil? || vv["nodeId"] == 0
-    #       #   sleep 0.01
-    #       # end
-    #       # break vv
-    #     end
-    #   end
-    # rescue Timeout::Error
-    #   nil
-    # end
 
     def has_body?(resp)
       debug
@@ -387,41 +161,6 @@ module Capybara::Chrome
 
     def get_document
       val = remote.send_cmd "DOM.getDocument"
-      # debug
-      # Timeout.timeout(1) do
-      #   loop do
-      #     val = remote.send_cmd "DOM.getDocument"
-      #     break val if has_body? val
-      #   end
-      # end
-      # rescue Timeout::Error
-      #   raise Capybara::ExpectationNotMet
-
-
-      # debug "wait_for", Time.now.to_i
-      # val = remote.wait_for "Page.loadEventFired"
-      # debug "wait_for done", Time.now.to_i
-      # unless wait_for_body
-      #   p ["raising retry error"]
-      #     raise Capybara::ExpectationNotMet
-      # end
-      # val = nil
-      # debug "starting"
-      # val = remote.send_cmd "DOM.getDocument"
-      # debug "done #{val}"
-      # @network_mutex.synchronize {}
-      # p ["get document in sync"]
-        # val = remote.send_cmd "DOM.getDocument"
-        # val = remote.send_cmd "DOM.getDocument"
-        # remote.wait_for "Page.loadEventFired"
-      # end
-      # if val["root"]["childNodeCount"] == 0
-      #   p ["get document node count 0"]
-      #   # raise RetryError
-      #   # remote.wait_for "DOM.documentUpdated"
-      #   remote.wait_for "Page.domContentEventFired"
-      #   val = get_document
-      # end
     end
 
     def document_root
@@ -444,18 +183,12 @@ module Capybara::Chrome
 
     def find_css(query)
       debug query
-      # query.gsub!('"', '\"')
-      # get_document
-      # result = evaluate_script %( ChromeRemoteHelper.findCss("#{query}") )
-      # return get_node_results result["result"]
       nodes = query_selector_all(query)
       nodes
     end
 
     def query_selector_all(query, index=nil)
       wait_for_load
-#wait_for_load
-      # p ["find_css", query, index]
       query = query.dup
       query.gsub!('"', '\"')
       result = if index
@@ -463,7 +196,6 @@ module Capybara::Chrome
                else
                  evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findCss("#{query}") )
                end
-      # info query, index, result
       get_node_results result
     end
 
@@ -490,19 +222,15 @@ module Capybara::Chrome
     def get_node_results(result)
       vals = result.split(",")
       nodes = []
-      if vals.empty?
-        # puts "empty result set #{Time.now.to_f}"
-      else
+      if vals.any?
         nodes = result.split(",").map do |id|
           Node.new driver, self, id.to_i
         end
-        # puts "got #{nodes.size} nodes #{Time.now.to_f}"
       end
       nodes
     end
 
     def find_xpath(query, index=nil)
-# p ["find xpath", query, index]
       wait_for_load
       query = query.dup
       query.gsub!('"', '\"')
@@ -511,7 +239,6 @@ module Capybara::Chrome
                else
                  evaluate_script %( window.ChromeRemoteHelper && ChromeRemoteHelper.findXPath("#{query}") )
                end
-      # info [query, index, result]
       get_node_results result
     end
 
@@ -522,69 +249,7 @@ module Capybara::Chrome
       else
         ""
       end
-      # Timeout.timeout(1) do
-      #   loop do
-      #     nodes = find_xpath("/html/head/title") rescue nil
-      #     if nodes && nodes.any?
-      #       break nodes[0].text
-      #     end
-      #   end
-      # end
-    # rescue Timeout::Error
-      # ""
     end
-
-    # def find_xpath(query)
-    #   evaluate_script("$x(#{query})")
-    # end
-    # def find_xpath(query)
-    #   # get_document
-    #   val = remote.send_cmd("DOM.performSearch", query: query)
-    #   debug val, query
-
-    #   if val["resultCount"] == 0
-    #     # raise RetryError.new
-    #     return []
-    #   end
-
-    #   search_id = val["searchId"]
-    #   val = remote.send_cmd("DOM.getSearchResults", searchId: search_id, fromIndex: 0, toIndex: val["resultCount"])
-    #   debug 'search result', val
-    #   if val.nil?
-    #         # remote.wait_for("Page.lifecycleEvent") do |lcycle_params|
-    #         #   # p ["wait for block called", lcycle_params["name"]]
-    #         #   (lcycle_params["name"] == "load"  || lcycle_params["name"] == "networkIdle")# && params["loaderId"] == lcycle_params["loaderId"]
-    #         # end
-    #         # get_document
-    #     raise Capybara::ExpectationNotMet?
-    #   end
-    #   # retry if val.nil?
-    #   val["nodeIds"].map do |node_id|
-    #     if node_id == 0
-    #         # remote.wait_for("Page.lifecycleEvent") do |lcycle_params|
-    #         #   # p ["wait for block called", lcycle_params["name"]]
-    #         #   (lcycle_params["name"] == "load"  || lcycle_params["name"] == "networkIdle")# && params["loaderId"] == lcycle_params["loaderId"]
-    #         # end
-    #       raise Capybara::ExpectationNotMet
-    #     end
-    #     Node.new(@driver, self, node_id)
-    #   end
-    # # rescue => e
-    # #   if e.message == "retry"
-    # #     puts "RETRYING #{__method__}"
-    # #     retry
-    # #   else
-    # #     raise e
-    # #   end
-    # ensure
-    #   remote.send_cmd("DOM.discardSearchResults", searchId: search_id)
-    # end
-
-    # def html
-    #   p ["html method"]
-    #   val = remote.send_cmd "Network.getResponseBody", requestId: @last_navigate["loaderId"]
-    #   val["body"]
-    # end
 
     def start_remote
       # @remote = ChromeRemoteClient.new(::ChromeRemote.send(:get_ws_url, {host: "localhost", port: @chrome_port}))
@@ -604,7 +269,6 @@ module Capybara::Chrome
     end
 
     def set_viewport(width:, height:, device_scale_factor: 1, mobile: false)
-      # remote.send_cmd("Emulation.clearDeviceMetricsOverride")
       remote.send_cmd!("Emulation.setDeviceMetricsOverride", width: width, height: height, deviceScaleFactor: device_scale_factor, mobile: mobile)
     end
 
@@ -655,7 +319,6 @@ module Capybara::Chrome
       @js_dialog_handlers[type.to_s] << {accept: false}
       block.call if block
       debug [type, text_or_options, options]
-      # remote.wait_for("Page.javascriptDialogOpening")
     end
 
     def enable_console_log
@@ -673,22 +336,11 @@ module Capybara::Chrome
     def enable_lifecycle_events
       remote.send_cmd! "Page.setLifecycleEventsEnabled", enabled: true
       remote.on("Page.lifecycleEvent") do |params|
-        # p [:lifecycle, params]
         if params["name"] == "init"
           @loader_ids.push(params["loaderId"])
-          # @network_mutex.lock unless @network_mutex.locked?
-          # remote.wait_for("Page.lifecycle") do |p2|
-          #   v = p2["name"] == "load"
-          #   p ["GOT LOAD EVENT"] if v
-          #   v
-          # end
         elsif params["name"] == "load"
           @loaded_loaders[params["loaderId"]] = true
-          # p [:lifecycle_unlock]
-          # @network_mutex.unlock if @network_mutex.locked?
         elsif params["name"] == "networkIdle"
-          # @network_mutex.unlock if @network_mutex.locked?
-          # p [:lifecycle_done]
         end
       end
     end
@@ -730,9 +382,6 @@ module Capybara::Chrome
       @js_dialog_handlers.clear
       @unrecognized_scheme_requests.clear
       remote.reset
-      # @loader_ids.clear
-      # @loaded_loaders.clear
-      # remote.send_cmd "Page.close"
       remote.send_cmd! "Network.clearBrowserCookies"
       remote.send_cmd! "Runtime.discardConsoleEntries"
       remote.send_cmd! "Network.setExtraHTTPHeaders", headers: {}

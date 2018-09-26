@@ -32,9 +32,7 @@ module Capybara
     end
 
     def self.trap_interrupt
-      $stderr.puts "TRAPPING"
       previous_interrupt = trap("INT") do
-        $stderr.puts "IN INT"
         @wants_to_quit = true
         if previous_interrupt.respond_to?(:call)
           previous_interrupt.call
@@ -45,7 +43,6 @@ module Capybara
     end
 
     Capybara.register_driver :chrome do |app|
-      $stderr.puts "REGISTER DRIVER"
       driver = Capybara::Chrome::Driver.new(app, port: configuration.chrome_port)
       if driver.browser.chrome_running?
         driver = Capybara::Chrome::Driver.new(app)

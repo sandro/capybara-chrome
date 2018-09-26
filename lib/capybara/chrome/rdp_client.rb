@@ -25,14 +25,10 @@ module Capybara::Chrome
       @handler_mutex = Mutex.new
       @loader_ids = []
       @handler_calls = []
-      # @fbr_bites = []
-      # @fbr = Fiber.new { loop { if @fbr_bites.shift; Fiber.yield; else sleep 0.1; end } }
       @rp, @wp = IO.pipe
     end
 
     def reset
-      # handlers.clear
-      # handler_calls.clear
       @calling_handlers = false
       response_messages.clear
       response_events.clear
@@ -52,30 +48,20 @@ module Capybara::Chrome
 
     # Errno::EPIPE
     def send_cmd(command, params={})
-      # read_and_process(0.01)
       msg_id = send_cmd!(command, params)
 
       debug "waiting #{command} #{msg_id}"
       msg = nil
       begin
-        # Timeout.timeout(::Capybara::Chrome.configuration.max_wait_time) do
-          until msg = @response_messages[msg_id]
-            read_and_process(1)
-          end
-          @response_messages.delete msg_id
-        # end
+        until msg = @response_messages[msg_id]
+          read_and_process(1)
+        end
+        @response_messages.delete msg_id
       rescue Timeout::Error
         puts "TimeoutError #{command} #{params.inspect} #{msg_id}"
         send_cmd! "Runtime.terminateExecution"
-        # send_cmd! "Browser.close"
         puts "Recovering"
         recover_chrome_crash
-        # send_cmd! "Page.navigate", url: "about:blank"
-        # browser.get_document
-        # i = send_cmd!("Browser.getVersion")
-        # read_and_process(1)
-
-        # p [@response_messages[i], @response_messages.keys, i]
         raise ResponseTimeoutError
       rescue WebSocketError => e
         puts "send_cmd received websocket error #{e.inspect}"
@@ -90,20 +76,7 @@ module Capybara::Chrome
         puts caller
         raise e
       end
-      # puts "done waiting #{command} #{msg_id}. deleting"
-      # p ["msg is", msg]
-
-      # Thread.new do
-      #   @listen_mutex.synchronize do
-      #     @response_messages.delete msg_id
-      #   end
-      # end
-
-      # p ["deleting response message done"]
       return msg["result"]
-
-      # msg = read_until { |msg| msg["id"] == msg_id }
-      # msg["result"]
     end
 
     def recover_chrome_crash
@@ -132,130 +105,61 @@ module Capybara::Chrome
     end
 
     def wait_for(event_name, timeout=Capybara.default_max_wait_time)
-      # puts "wait for #{event_name}"
-      # @listen_mutex.synchronize do
-       @response_events.clear
-      # end
+      @response_events.clear
       msg = nil
-      # Timeout.timeout(timeout) do
-        loop do
-          msgs = @response_events.select {|v| v["method"] == event_name}
-          if msgs.any?
-            if block_given?
-              do_return = msgs.detect do |m|
-                val = yield m["params"]
-                # if val
-                #   msg = m.dup
-                #   @response_events.delete m
-                # end
-                # val
-              end
-              if do_return
-                msg = do_return.dup
-                # @listen_mutex.synchronize do
-                  @response_events.delete do_return
-                # end
-                break
-              else
-                # p "got msgs", msgs.size, msgs.map{|s| s["method"]}
-                # sleep 0.05
-                read_and_process(1)
-                next
-              end
-            else
-              msg = msgs.first.dup
-              # @listen_mutex.synchronize do
-                msgs.each {|m| @response_events.delete m}
-              # end
+      loop do
+        msgs = @response_events.select {|v| v["method"] == event_name}
+        if msgs.any?
+          if block_given?
+            do_return = msgs.detect do |m|
+              val = yield m["params"]
+            end
+            if do_return
+              msg = do_return.dup
+              @response_events.delete do_return
               break
+            else
+              read_and_process(1)
+              next
             end
           else
-            # p "got no msg - #{event_name}"
-            # sleep 0.01
+            msg = msgs.first.dup
+            msgs.each {|m| @response_events.delete m}
+            break
           end
-          # sleep 0.05
-          read_and_process(1)
+        else
         end
-      # end
-      # @response_events.clear
+        read_and_process(1)
+      end
       return msg && msg["params"]
     rescue Timeout::Error
       puts "WAIT_FOR TIMED OUT"
       nil
     end
 
-    # def setup_ws
-    #   @ws_thread = Thread.new do
-    #     @ws_mutex.synchronize do
-    #       @ws = ::ChromeRemote::WebSocketClient.new(@ws_url)
-    #     end
-    #     loop do
-    #       p ["parse input"]
-    #       @ws.send :parse_input
-    #     end
-    #   end
-    # end
     def process_messages
-      # puts "ready"
-      # events = []
       n = 0
       while @ws.messages.any? do
         n += 1
-        # p ["some messages", @ws.messages.size]
         msg_raw = @ws.messages.shift
         if msg_raw
           msg = JSON.parse(msg_raw)
-          # p "message #{msg["id"].inspect} #{msg["method"]} size #{@ws.messages.size}"
           if msg["method"]
-            # if msg["method"] =~ /lifecycle/
-            #   p ["EVENT", msg]
-            # else
-            #   p ["EVENT", msg["method"]]
-            # end
-            # p ["EVENT", msg["method"], msg["params"]["type"], msg["params"].fetch("request", {})["url"], msg["params"].fetch("response", {})["url"], "L", msg["params"]["loaderId"], "R", msg["params"]["requestId"], msg["params"]["type"], msg["params"]["name"]]
-            # lid = msg["params"]["loaderId"]
-            # if lid && !@loader_ids.include?(lid)
-            #   params = msg["params"]
-            #   p "New loader id #{msg["method"]} #{params["loaderId"]}"
-            #   @loader_ids << lid
-            # end
-            # events << msg
             hs = handlers[msg["method"]]
             if hs.any?
-              # hs.each do |handler|
-              #   handler.call(msg["params"])
-              # end
-              # @handler_mutex.synchronize do
-                @handler_calls << [msg["method"], msg["params"]]
-                # @handler_calls << [hs, msg["params"]]
-              # end
+              @handler_calls << [msg["method"], msg["params"]]
             end
-            # else
-            # @listen_mutex.synchronize do
-              @response_events << msg
-            # end
-            # end
+            @response_events << msg
           else
-            # p ["writing to response_messages"]
-            # @listen_mutex.synchronize do
-
-              @response_messages[msg["id"]] = msg
-              if msg["exceptionDetails"]
-                puts JSException.new(val["exceptionDetails"]["exception"].inspect)
-                # raise JSException.new(val["exceptionDetails"]["exception"].inspect)
-              end
-            # end
-            # p ["writing to response_messages done"]
+            @response_messages[msg["id"]] = msg
+            if msg["exceptionDetails"]
+              puts JSException.new(val["exceptionDetails"]["exception"].inspect)
+            end
           end
         else
           p ["no msg_raw", msg_raw]
         end
       end
-      # events.each do |emsg|
-      #   handlers[emsg["method"]].each do |handler|
-      #     handler.call(emsg["params"])
-      #   end
-      # end
       n
     end
 
@@ -273,46 +177,16 @@ module Capybara::Chrome
       return unless Thread.current == Thread.main
       ready = select [@ws.socket.io], [], [], timeout
       if ready
-        # @read_mutex.synchronize do
-        # puts "done select"
         @ws.parse_input
-        # puts "done parse"
         process_messages
       end
-      # drain_messages
       if !@calling_handlers
-        # @fbr.resume if @fbr.alive?
         @calling_handlers = true
         while obj = @handler_calls.shift do
           handlers[obj[0]].each {|h| h.call obj[1]}
         end
-        # @handler_calls.each_with_index.map do |obj, i|
-        # @handler_mutex.synchronize do
-        # job_ids = @handler_calls.each_with_index.map do |obj, i|
-          # obj[0].each {|h| h.call obj[1]}
-          # handlers[obj[0]].each {|h| h.call obj[1]}
-          # i
-        # end
-          # # puts "DELETING #{job_ids.inspect}" if job_ids.any?
-          # job_ids.each {|i| @handler_calls.delete_at i}
-          # # @handler_calls.delete jobs
-        # end
         @calling_handlers = false
       end
-      # if !@listen_thread
-      #   @listen_thread = Thread.new do
-      #     loop do
-      #     ready = select [@ws.socket.io], [], [], timeout
-      #     if ready
-      #     # @read_mutex.synchronize do
-      #       # puts "done select"
-      #       @ws.send :parse_input
-      #       # puts "done parse"
-      #       process_messages
-      #     end
-      #     end
-      #   end
-      # end
     end
 
     def discover_ws_url
@@ -340,27 +214,13 @@ module Capybara::Chrome
 
       Thread.abort_on_exception = true
       return
-      # setup_ws
-      # @ws_mutex.synchronize {}
       @listen_thread = Thread.new do
-        # p ["new thread"]
         loop do
-          # puts "in looP"
           select [@ws.socket.io]
-          # @read_mutex.synchronize do
-          # puts "done select"
           @ws.send :parse_input
-          # puts "done parse"
           nn = process_messages
-          # @fbr_bites << true
-          # puts "size #{nn}"
           @wp.puts 1 if nn > 0
         end
-        # listen_until do |msg|
-        #   p ["got msg", msg]
-        #   continue unless msg
-        #   false
-        # end
       end
     end
   end

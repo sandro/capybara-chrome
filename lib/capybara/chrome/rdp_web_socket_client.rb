@@ -21,11 +21,6 @@ module Capybara::Chrome
       @driver.parse(@socket.read)
     end
 
-    # def read_msg
-    #   parse_input until msg = messages.shift
-    #   msg
-    # end
-
     private
 
     def setup_driver
