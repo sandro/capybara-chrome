@@ -1,8 +1,6 @@
 # Capybara::Chrome
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/capybara/chrome`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
+Use [Capybara](https://github.com/teamcapybara/capybara) to drive Chrome in headless mode via the [debugging protocol](https://chromedevtools.github.io/devtools-protocol/).
 
 ## Installation
 
@@ -22,7 +20,30 @@ Or install it yourself as:
 
 ## Usage
 
-The standard port for the debugging protocol is `9222`. Visit `localhost:9222` in a Chrome tab to watch the tests execute. Note, the port will be random when using Specjour.
+```ruby
+Capybara.javascript_driver = :chrome
+Capybara::Chrome.configuration.chrome_port = 9222 # optional
+```
+
+The standard port for the debugging protocol is `9222`. Visit `localhost:9222` in a Chrome tab to watch the tests execute. Note, the port will be random by default.
+
+### Using thin
+
+I like using [thin](https://github.com/macournoyer/thin) instead of WEBrick as
+my Capybara server. It's a little faster, gives me greater control of logging,
+shows errors, and allows me to disable signal handlers.
+Below are my settings:
+
+```ruby
+Capybara.register_server :thin do |app, port, host|
+  require "rack/handler/thin"
+  Thin::Logging.silent = false
+  # Thin::Logging.debug = true # uncomment to see request and response codes
+  # Thin::Logging.trace = true # uncomment to see full requests/responses
+  Rack::Handler::Thin.run(app, Host: host, Port: port, signals: false)
+end
+Capybara.server = :thin
+```
 
 ### Debugging
 
