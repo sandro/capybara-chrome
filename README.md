@@ -87,6 +87,20 @@ Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/a
 Accept-Encoding: gzip, deflate
 ```
 
+### Videos
+
+A video showing capybara-chrome running in a browser tab
+
+[![Preview of visualizing capybara-chrome](http://img.youtube.com/vi/SLmkx5z-lAA/0.jpg)](http://www.youtube.com/watch?v=SLmkx5z-lAA)
+
+A video demonstrating debugging an rspec test with `byebug`
+
+[![Preview of debugging capybara-chrome](http://img.youtube.com/vi/McEQG9YEAdE/0.jpg)](http://www.youtube.com/watch?v=McEQG9YEAdE)
+
+A video showing capybara-chrome running against a netcat backend
+
+[![Preview of debugging capybara-chrome with netcat](http://img.youtube.com/vi/B1__LeLyXBo/0.jpg)](http://www.youtube.com/watch?v=B1__LeLyXBo)
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/carezone/capybara-chrome.
