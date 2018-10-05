@@ -17,7 +17,6 @@ module Capybara::Chrome
       @ws_thread = nil
       @ws_mutex = Mutex.new
       @handlers = Hash.new { |hash, key| hash[key] = [] }
-      @listen_thread = nil
       @listen_mutex = Mutex.new
       @response_messages = {}
       @response_events = []
@@ -25,7 +24,6 @@ module Capybara::Chrome
       @handler_mutex = Mutex.new
       @loader_ids = []
       @handler_calls = []
-      @rp, @wp = IO.pipe
     end
 
     def reset
@@ -83,8 +81,6 @@ module Capybara::Chrome
       $stderr.puts "Chrome Crashed... #{Capybara::Chrome.wants_to_quit.inspect} #{::RSpec.wants_to_quit.inspect}" unless Capybara::Chrome.wants_to_quit
       browser.restart_chrome
       browser.start_remote
-      # @chrome_port = browser.chrome_port
-      # start
     end
 
     def send_msg(msg)
@@ -133,7 +129,6 @@ module Capybara::Chrome
       end
       return msg && msg["params"]
     rescue Timeout::Error
-      puts "WAIT_FOR TIMED OUT"
       nil
     end
 
@@ -163,16 +158,6 @@ module Capybara::Chrome
       n
     end
 
-    def drain_messages
-      if !@draining
-        @draining = true
-        while IO.select [@rp], [], [], 0.001
-          @rp.gets
-        end
-        @draining = false
-      end
-    end
-
     def read_and_process(timeout=0)
       return unless Thread.current == Thread.main
       ready = select [@ws.socket.io], [], [], timeout
@@ -192,7 +177,6 @@ module Capybara::Chrome
     def discover_ws_url
       response = open("http://#{@chrome_host}:#{@chrome_port}/json")
       data = JSON.parse(response.read)
-      puts "data is #{response.inspect} #{data.inspect}"
       first_page = data.detect {|e| e["type"] == "page"}
       @ws_url = first_page["webSocketDebuggerUrl"]
     end
@@ -214,14 +198,6 @@ module Capybara::Chrome
 
       Thread.abort_on_exception = true
       return
-      @listen_thread = Thread.new do
-        loop do
-          select [@ws.socket.io]
-          @ws.send :parse_input
-          nn = process_messages
-          @wp.puts 1 if nn > 0
-        end
-      end
     end
   end
 
