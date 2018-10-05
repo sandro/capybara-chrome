@@ -34,8 +34,8 @@ module Capybara::Chrome
 
     def start_chrome
       return if chrome_running?
-      info "Starting Chrome", chrome_path, chrome_args
-      @chrome_pid = Process.spawn chrome_path, *chrome_args
+      debug "Starting Chrome", chrome_path, chrome_args
+      @chrome_pid = Process.spawn chrome_path, *chrome_args, :out=>"/dev/null"
       at_exit { stop_chrome }
     end
 
