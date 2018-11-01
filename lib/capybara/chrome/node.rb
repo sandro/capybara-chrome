@@ -32,15 +32,15 @@ module Capybara::Chrome
     end
 
     def visible_text
-      debug visible?
-      if visible?
-        text
-      else
-        ""
-      end
+      raw_text.to_s.gsub(/\ +/, ' ')
+        .gsub(/[\ \n]*\n[\ \n]*/, "\n")
+        .gsub(/\A[[:space:]&&[^\u00a0]]+/, "")
+        .gsub(/[[:space:]&&[^\u00a0]]+\z/, "")
+        .tr("\u00a0", ' ')
     end
+    alias text visible_text
 
-    def text
+    def raw_text
       browser.evaluate_script %( ChromeRemoteHelper.nodeText(#{id}) )
     end
 
