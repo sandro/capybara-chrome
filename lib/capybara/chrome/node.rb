@@ -185,13 +185,16 @@ module Capybara::Chrome
           return;
 
         var selectNode = this.parentNode;
+        if (selectNode.tagName == "OPTGROUP")
+          selectNode = selectNode.parentNode;
+
         ChromeRemoteHelper.dispatchEvent(selectNode, "mousedown");
         selectNode.focus();
         ChromeRemoteHelper.dispatchEvent(selectNode, "input");
 
         if (!this.selected) {
           this.selected = true;
-          ChromeRemoteHelper.dispatchEvent(this, "change");
+          ChromeRemoteHelper.dispatchEvent(selectNode, "change");
         }
 
         ChromeRemoteHelper.dispatchEvent(selectNode, "mouseup");
