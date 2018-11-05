@@ -3,6 +3,31 @@ module Capybara::Chrome
     include Debug
     attr_reader :browser, :id
 
+    KEY_DATA = Hash.new do |h, k|
+      h[k] = {text: k.to_s}
+    end.merge!({
+      cancel: { key_code: 3, code: "Abort", key: "Cancel"},
+      help: { key_code: 6, code: "Help", key: "Help"},
+      backspace: { key_code: 8, code: "Backspace", key: "Backspace"},
+      tab: { key_code: 9, code: "Tab", key: "Tab"},
+      delete: { key_code: 46, code: "Delete", key: "Delete"},
+      home: { key_code: 36, code: "Home", key: "Home"},
+      end: { key_code: 35, code: "End", key: "End"},
+      left: { key_code: 37, code: "ArrowLeft", key: "ArrowLeft"},
+      right: { key_code: 39, code: "ArrowRight", key: "ArrowRight"},
+      up: { key_code: 38, code: "ArrowUp", key: "ArrowUp"},
+      down: { key_code: 40, code: "ArrowDown", key: "ArrowDown"},
+      return: { key_code: 13, code: "Enter", key: "Enter"},
+      enter: { key_code: 13, code: "Enter", key: "Enter"},
+      "\r" => { key_code: 13, code: "Enter", key: "Enter", text: "\r"},
+      "\n" => { key_code: 13, code: "Enter", key: "Enter", text: "\r"},
+      space: { key_code: 32, code: "Space", key: " ", text: " "},
+      shift: { key_code: 16, code: "Shift", key: "ShiftLeft", location: 1},
+      control: { key_code: 17, code: "ControlLeft", key: "Control", text: "\r"},
+      alt: { key_code: 18, code: "AltLeft", key: "Alt", location: 1},
+      meta: { key_code: 91, code: "MetaLeft", key: "Meta", location: 1},
+    })
+
     def initialize(driver, browser, id)
       raise "hell" if id == 0
       @driver = driver
@@ -154,8 +179,47 @@ module Capybara::Chrome
       end
     end
 
-    def send_keys(*args)
-      raise "i dunno"
+    def send_keys(*keys)
+      keys.each do |key|
+        if key.is_a? Array
+          mods, new_keys = get_modifiers(key)
+          new_keys.each do |k|
+            send_key_data(get_key_data(k), modifiers: mods)
+          end
+        else
+          send_key_data(get_key_data(key))
+        end
+      end
+    end
+
+    def get_key_data(key)
+      KEY_DATA[key]
+    end
+
+    def send_key_data(data, modifiers: 0)
+      type = data[:text] ? "keyDown" : "rawKeyDown"
+      send_cmd! "Input.dispatchKeyEvent", {type: type, text: data[:text].to_s, windowsVirtualKeyCode: data[:key_code].to_i, code: data[:code].to_s, key: data[:key].to_s, modifiers: modifiers}
+      send_cmd! "Input.dispatchKeyEvent", {type: "keyUp", modifiers: modifiers}
+    end
+
+    def get_modifiers(ary)
+      mods = []
+      keys = []
+      ary.each do |k|
+        case k
+        when :alt
+          mods << 1
+        when :control
+          mods << 2
+        when :meta, :command
+          mods << 4
+        when :shift
+          mods << 8
+        else
+          keys << k
+        end
+      end
+      [mods.inject(&:|), keys]
     end
 
     def focus
@@ -208,7 +272,7 @@ module Capybara::Chrome
 
     def method_missing(method, *args)
       debug ["method missing", method, args]
-      raise "method midding #{method}"
+      raise "method missing #{method} #{args.inspect}"
     end
 
     def [](attr)
