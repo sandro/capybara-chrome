@@ -17,6 +17,21 @@ And then execute:
 Or install it yourself as:
 
     $ gem install capybara-chrome
+    
+### Using Docker
+
+Add this line to your Dockerfile to install Chrome:
+  
+```dockerfile
+  RUN curl -sL -o chrome-stable.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb ; dpkg -i chrome-stable.deb ; apt-get install -fy; rm -rf /var/lib/apt/lists/*
+```
+
+In my experience, headless Chrome cannot be run as root, so you need to run `rspec` as an unprivileged user and use this flag with `docker run`
+
+```bash
+docker run --security-opt seccomp=unconfined
+```
+  
 
 ## Usage
 
