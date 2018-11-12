@@ -104,6 +104,7 @@ module Capybara::Chrome
     ensure
       server.close if server
     end
+    module_function :find_available_port
 
   end
 end

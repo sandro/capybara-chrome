@@ -1,6 +1,7 @@
 require "capybara/chrome/version"
 require "capybara"
 require "websocket/driver"
+require "json"
 
 module Capybara
   module Chrome
