@@ -305,6 +305,7 @@ module Capybara::Chrome
           @js_dialog_handlers[params["type"]].delete(params["type"].size - 1)
         else
           puts "WARNING: Accepting unhandled modal. Use #accept_modal or #dismiss_modal to handle this modal properly."
+          puts "Details: #{params.inspect}"
           remote.send_cmd("Page.handleJavaScriptDialog", accept: true)
         end
       end
