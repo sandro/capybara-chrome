@@ -118,7 +118,7 @@ A video showing capybara-chrome running against a netcat backend
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/carezone/capybara-chrome.
+Bug reports and pull requests are welcome on GitHub at https://github.com/sandro/capybara-chrome.
 
 ## License
 

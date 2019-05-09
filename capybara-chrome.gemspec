@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = %q{Chrome driver for capybara using remote debugging protocol.}
   spec.description   = %q{Chrome driver for capybara using remote debugging protocol.}
-  spec.homepage      = "https://github.com/carezone/capybara-chrome"
+  spec.homepage      = "https://github.com/sandro/capybara-chrome"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
