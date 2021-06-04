@@ -13,7 +13,7 @@ module Capybara::Chrome
     DEFAULT_TRAP_INTERRUPT = true
     DEFAULT_DEBUG = false
 
-    attr_accessor :max_wait_time, :download_path, :chrome_port, :trap_interrupt, :debug
+    attr_accessor :max_wait_time, :download_path, :chrome_port, :trap_interrupt, :debug, :chrome_args
 
     def initialize
       @allowed_urls = DEFAULT_ALLOWED_URLS.dup
@@ -23,6 +23,7 @@ module Capybara::Chrome
       @chrome_port = DEFAULT_CHROME_PORT
       @trap_interrupt = DEFAULT_TRAP_INTERRUPT
       @debug = DEFAULT_DEBUG
+      @chrome_args = []
     end
 
     def block_unknown_urls
