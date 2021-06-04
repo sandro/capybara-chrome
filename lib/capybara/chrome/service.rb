@@ -76,7 +76,9 @@ module Capybara::Chrome
     end
 
     def chrome_args
-      CHROME_ARGS + ["--remote-debugging-port=#{@chrome_port}"]
+      custom_args = Capybara::Chrome.configuration.chrome_args
+      defaults = custom_args.any? ? custom_args : CHROME_ARGS
+      defaults + ["--remote-debugging-port=#{@chrome_port}"]
     end
 
     def os

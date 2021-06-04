@@ -18,4 +18,23 @@ RSpec.describe Capybara::Chrome::Browser do
     end
   end
 
+  describe "#chrome_args" do
+    let(:remote_opt) { ["--remote-debugging-port=9222"]}
+    let(:browser) { Capybara::Chrome::Browser.new(nil, port: 9222) }
+
+    it "returns defaults" do
+      expect(browser.chrome_args).to eq(
+        Capybara::Chrome::Service::CHROME_ARGS + remote_opt
+      )
+    end
+
+    it "returns custom" do
+      args = ["--headless", "--enable-automation"]
+      Capybara::Chrome.configuration.chrome_args = args
+      expect(browser.chrome_args).to eq(
+        args + remote_opt
+      )
+    end
+  end
+
 end
